@@ -23,7 +23,7 @@ export interface ChatMessage {
   sender: 'user' | 'ai';
   type: 'text' | 'image' | 'analysis';
   content: string | EWasteItem;
-  imagePreviewUrl?: string;
+  imageUrl?: string;
 }
 
 export interface RecyclingCenter {
