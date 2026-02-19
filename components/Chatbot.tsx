@@ -19,6 +19,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem }) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
@@ -50,9 +51,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem }) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Reset input so the same file can be selected again
+    // Reset state for new upload
     e.target.value = ''; 
-
+    setUploadError(null);
+    
     // Add a temporary message with a local preview
     const localImageUrl = URL.createObjectURL(file);
     const tempMessageId = `user-img-temp-${Date.now()}`;
@@ -87,7 +89,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem }) => {
         setMessages(prev => [...prev, aiResponse]);
         setIdentifiedItem(result);
     } catch (error: any) {
-        alert(error.message || "An unknown error occurred during upload.");
+        setUploadError(error.message || "An unknown error occurred during upload.");
         // Remove the temporary message on failure
         setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
     } finally {
@@ -153,12 +155,19 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem }) => {
           )}
       </div>
       
-      {isUploading && (
+      {(isUploading || uploadError) && (
         <div className="px-4 pb-2">
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
-            </div>
-            <p className="text-xs text-center text-gray-600 mt-1">Uploading... {Math.round(uploadProgress!)}%</p>
+            {isUploading && (
+              <>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
+                </div>
+                <p className="text-xs text-center text-gray-600 mt-1">Uploading... {Math.round(uploadProgress!)}%</p>
+              </>
+            )}
+            {uploadError && (
+              <p className="text-xs text-center text-red-600 mt-1">{uploadError}</p>
+            )}
         </div>
       )}
 
@@ -166,7 +175,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem }) => {
         <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             ref={fileInputRef}
             onChange={handleImageUpload}
             className="hidden"

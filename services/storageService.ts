@@ -2,7 +2,7 @@
 import { storage } from '../firebase';
 import { ref, uploadBytesResumable, getDownloadURL, UploadTaskSnapshot } from 'firebase/storage';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 /**
@@ -12,7 +12,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
  */
 const validateFile = (file: File): string | null => {
     if (!ALLOWED_TYPES.includes(file.type)) {
-        return 'Invalid file type. Please upload a JPEG, PNG, or WebP image.';
+        return `Invalid file type (${file.type}). Please upload a JPEG, PNG, or WebP image.`;
     }
     if (file.size > MAX_FILE_SIZE) {
         return 'File is too large. Maximum size is 5MB.';
