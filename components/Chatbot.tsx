@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { ChatMessage, EWasteItem } from '../types';
-import { analyzeImage } from '../services/geminiService';
+import { analyzeImage, analyzeText } from '../services/geminiService';
 import { uploadChatImage } from '../services/storageService';
 import { useAuth } from '../context/AuthContext';
 import { UploadIcon, SendIcon } from './IconComponents';
@@ -23,29 +23,45 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim() || uploadProgress !== null) return;
+const handleSendMessage = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!inputValue.trim() || isUploading) return;
 
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      type: 'text',
-      content: inputValue,
-    };
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
-    // Mock AI response for text messages
-    setTimeout(() => {
-        const aiResponse: ChatMessage = {
-            id: `ai-${Date.now()}`,
-            sender: 'ai',
-            type: 'text',
-            content: "I'm best at analyzing images of e-waste. Please upload a photo for identification and value estimation."
-        }
-        setMessages(prev => [...prev, aiResponse]);
-    }, 1000);
+  const userMessage: ChatMessage = {
+    id: `user-${Date.now()}`,
+    sender: 'user',
+    type: 'text',
+    content: inputValue,
   };
+  setMessages(prev => [...prev, userMessage]);
+  setInputValue('');
+  setIsLoading(true);
+
+  try {
+    const responseText = await analyzeText(inputValue);
+
+    const aiResponse: ChatMessage = {
+      id: `ai-${Date.now()}`,
+      sender: 'ai',
+      type: 'text',
+      content: responseText,
+    };
+    setMessages(prev => [...prev, aiResponse]);
+
+  } catch (error: any) {
+    const errorResponse: ChatMessage = {
+      id: `ai-error-${Date.now()}`,
+      sender: 'ai',
+      type: 'text',
+      content: `Sorry, something went wrong: ${error.message}`,
+    };
+    setMessages(prev => [...prev, errorResponse]);
+
+  } finally {
+    setIsLoading(false);
+  }
+};
+  
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
