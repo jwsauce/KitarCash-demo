@@ -49,7 +49,16 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem }) => {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+
+    // 1. Log the truth
+    console.log("DEBUG: Current User Object ->", user);
+
+    // 2. The Gatekeeper: Stop if there is no user or no UID
+    if (!file) return;
+    if (!user || !user.id) {
+        alert("Upload blocked: You must be logged in. (UID is undefined)");
+        return; 
+    }
 
     // Reset state for new upload
     e.target.value = ''; 
