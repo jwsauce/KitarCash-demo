@@ -7,11 +7,12 @@ import { useAuth } from '../context/AuthContext';
 
 interface PickupSchedulerProps {
   identifiedItem: EWasteItem | null;
+  initialOption?: 'manual' | 'pickup' | null;
 }
 
-const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem }) => {
+const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initialOption = null }) => {
   const { user } = useAuth();
-  const [option, setOption] = useState<'manual' | 'pickup' | null>(null);
+  const [option, setOption] = useState<'manual' | 'pickup' | null>(initialOption);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [poolStatus, setPoolStatus] = useState<'idle' | 'waiting' | 'pooled'>('idle');
   const [error, setError] = useState<string | null>(null);

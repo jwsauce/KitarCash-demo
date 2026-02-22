@@ -24,6 +24,7 @@ export interface ChatMessage {
   type: 'text' | 'image' | 'analysis';
   content: string | EWasteItem;
   imageUrl?: string;
+  actionButtons?: string[];
 }
 
 export interface RecyclingCenter {

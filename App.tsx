@@ -16,24 +16,18 @@ export type View = 'chatbot' | 'pickup' | 'wallet';
 const MainApp: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('chatbot');
   const [identifiedItem, setIdentifiedItem] = useState<EWasteItem | null>(null);
+  const [pickupOption, setPickupOption] = useState<'manual' | 'pickup' | null>(null);
 
-  const renderView = () => {
-    switch (currentView) {
-      case 'chatbot':
-        return <Chatbot setIdentifiedItem={setIdentifiedItem} />;
-      case 'pickup':
-        return <PickupScheduler identifiedItem={identifiedItem} />;
-      case 'wallet':
-        return <Wallet />;
-        return <Chatbot setIdentifiedItem={setIdentifiedItem} />;
-    }
-  };
-  
   return (
     <div className="container mx-auto px-4 py-8">
       <Header currentView={currentView} setCurrentView={setCurrentView} />
       <main className="mt-8">
-        {renderView()}
+        {/* Render Chatbot always but hide it when not active to preserve its local state */}
+        <div className={currentView === 'chatbot' ? 'block' : 'hidden'}>
+          <Chatbot setIdentifiedItem={setIdentifiedItem} setCurrentView={setCurrentView} setPickupOption={setPickupOption} />
+        </div>
+        {currentView === 'pickup' && <PickupScheduler identifiedItem={identifiedItem} initialOption={pickupOption} />}
+        {currentView === 'wallet' && <Wallet />}
       </main>
     </div>
   )
