@@ -33,6 +33,8 @@ export interface RecyclingCenter {
   distance: number;
   operatingHours: string;
   contact: string;
+  lat: number;
+  lng: number;
 }
 
 export enum TransactionStatus {
@@ -50,4 +52,17 @@ export interface Transaction {
   item: string;
   amount: number;
   status: TransactionStatus;
+}
+
+export interface PickupRequest {
+  id?: string;
+  userId: string;
+  address: string;
+  item: string;
+  quantity: number;
+  addOn: string;
+  lat: number;
+  lng: number;
+  status: 'waiting' | 'pooled' | 'assigned' | 'completed';
+  createdAt: string;
 }

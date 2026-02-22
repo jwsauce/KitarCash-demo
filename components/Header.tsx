@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React from'react';
 import { View } from '../App';
 import { ChatIcon, MapIcon, WalletIcon } from './IconComponents';
 import { useAuth } from '../context/AuthContext';
@@ -10,8 +9,9 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
-  const { logout } = useAuth();
-  
+  const { logout, user } = useAuth();
+ 
+
   const navItems: { view: View; label: string; icon: React.ReactNode }[] = [
     { view: 'chatbot', label: 'Identify', icon: <ChatIcon className="w-6 h-6" /> },
     { view: 'pickup', label: 'Pickup', icon: <MapIcon className="w-6 h-6" /> },
@@ -44,7 +44,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
             ))}
           </ul>
         </nav>
-        <button 
+        <button
           onClick={logout}
           className="bg-red-500 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-red-600 transition-colors shadow-md"
         >
@@ -54,5 +54,4 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
     </header>
   );
 };
-
 export default Header;
