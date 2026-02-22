@@ -9,6 +9,8 @@ export const mockRecyclingCenters: RecyclingCenter[] = [
     distance: 2.5,
     operatingHours: '9am - 6pm',
     contact: '03-12345678',
+    lat: 3.1390,      // 👈 add this
+    lng: 101.6869,    // 👈 add this
   },
   {
     id: 'rc2',
@@ -17,6 +19,8 @@ export const mockRecyclingCenters: RecyclingCenter[] = [
     distance: 5.1,
     operatingHours: '10am - 8pm',
     contact: '03-87654321',
+    lat: 3.1073,      // 👈 add this
+    lng: 101.6374,   
   },
   {
     id: 'rc3',
@@ -25,6 +29,8 @@ export const mockRecyclingCenters: RecyclingCenter[] = [
     distance: 8.9,
     operatingHours: '9am - 5pm (Mon-Fri)',
     contact: '03-55558888',
+    lat: 2.9213,      // 👈 add this
+    lng: 101.6559, 
   },
 ];
 

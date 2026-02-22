@@ -25,7 +25,6 @@ const MainApp: React.FC = () => {
         return <PickupScheduler identifiedItem={identifiedItem} />;
       case 'wallet':
         return <Wallet />;
-      default:
         return <Chatbot setIdentifiedItem={setIdentifiedItem} />;
     }
   };
