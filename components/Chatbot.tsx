@@ -9,10 +9,12 @@ import DataSafetyGuide from './DataSafetyGuide';
 import HazardWarning from './HazardWarning';
 
 interface ChatbotProps {
-    setIdentifiedItem: (item: EWasteItem | null) => void;
+  setIdentifiedItem: (item: EWasteItem | null) => void;
+  setCurrentView: (view: 'chatbot' | 'pickup' | 'wallet') => void;
+  setPickupOption: (option: 'manual' | 'pickup' | null) => void;
 }
 
-const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem }) => {
+const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, setPickupOption }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: '1', sender: 'ai', type: 'text', content: 'Hello! Snap a picture of your e-waste to get started, or ask me a question.' },
   ]);
@@ -23,45 +25,93 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
-const handleSendMessage = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!inputValue.trim() || isUploading) return;
+  const handleQuickReply = (label: string, item?: EWasteItem) => {
+    const userMessage: ChatMessage = {
+      id: `user-quick-${Date.now()}`,
+      sender: 'user',
+      type: 'text',
+      content: label,
+    };
+    setMessages(prev => [...prev, userMessage]);
 
-  const userMessage: ChatMessage = {
-    id: `user-${Date.now()}`,
-    sender: 'user',
-    type: 'text',
-    content: inputValue,
+    // Remove buttons from the analysis message after selection
+    setMessages(prev =>
+      prev.map(msg =>
+        msg.actionButtons ? { ...msg, actionButtons: undefined } : msg
+      )
+    );
+
+    if (label === 'Schedule pickup') {
+      setPickupOption('pickup');
+      setCurrentView('pickup');
+      return;
+    }
+
+    if (label === 'Send manually') {
+      setPickupOption('manual');
+      setCurrentView('pickup');
+      return;
+    }
+
+    // For other buttons, trigger text analysis as normal
+    setIsLoading(true);
+    analyzeText(label).then(responseText => {
+      setMessages(prev => [...prev, {
+        id: `ai-${Date.now()}`,
+        sender: 'ai',
+        type: 'text',
+        content: responseText,
+      }]);
+    }).catch(err => {
+      setMessages(prev => [...prev, {
+        id: `ai-error-${Date.now()}`,
+        sender: 'ai',
+        type: 'text',
+        content: `Sorry, something went wrong: ${err.message}`,
+      }]);
+    }).finally(() => setIsLoading(false));
   };
-  setMessages(prev => [...prev, userMessage]);
-  setInputValue('');
-  setIsLoading(true);
 
-  try {
-    const responseText = await analyzeText(inputValue);
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputValue.trim() || isUploading) return;
 
-    const aiResponse: ChatMessage = {
-      id: `ai-${Date.now()}`,
-      sender: 'ai',
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
       type: 'text',
-      content: responseText,
+      content: inputValue,
     };
-    setMessages(prev => [...prev, aiResponse]);
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsLoading(true);
 
-  } catch (error: any) {
-    const errorResponse: ChatMessage = {
-      id: `ai-error-${Date.now()}`,
-      sender: 'ai',
-      type: 'text',
-      content: `Sorry, something went wrong: ${error.message}`,
-    };
-    setMessages(prev => [...prev, errorResponse]);
+    try {
+      const responseText = await analyzeText(inputValue);
 
-  } finally {
-    setIsLoading(false);
-  }
-};
-  
+      const aiResponse: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        sender: 'ai',
+        type: 'text',
+        content: responseText,
+        actionButtons: ['Send manually', 'Schedule pickup', 'Just asking'],
+      };
+      setMessages(prev => [...prev, aiResponse]);
+
+    } catch (error: any) {
+      const errorResponse: ChatMessage = {
+        id: `ai-error-${Date.now()}`,
+        sender: 'ai',
+        type: 'text',
+        content: `Sorry, something went wrong: ${error.message}`,
+      };
+      setMessages(prev => [...prev, errorResponse]);
+
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -72,14 +122,14 @@ const handleSendMessage = async (e: React.FormEvent) => {
     // 2. The Gatekeeper: Stop if there is no user or no UID
     if (!file) return;
     if (!user || !user.id) {
-        alert("Upload blocked: You must be logged in. (UID is undefined)");
-        return; 
+      alert("Upload blocked: You must be logged in. (UID is undefined)");
+      return;
     }
 
     // Reset state for new upload
-    e.target.value = ''; 
+    e.target.value = '';
     setUploadError(null);
-    
+
     // Add a temporary message with a local preview
     const localImageUrl = URL.createObjectURL(file);
     const tempMessageId = `user-img-temp-${Date.now()}`;
@@ -93,34 +143,35 @@ const handleSendMessage = async (e: React.FormEvent) => {
     setMessages(prev => [...prev, tempMessage]);
 
     try {
-        setUploadProgress(0);
-        const downloadURL = await uploadChatImage(file, user.id, setUploadProgress);
-        
-        // Replace temporary message with the final one containing the Firebase URL
-        setMessages(prev => prev.map(msg => 
-            msg.id === tempMessageId ? { ...msg, content: 'Here is my e-waste item.', imageUrl: downloadURL } : msg
-        ));
+      setUploadProgress(0);
+      const downloadURL = await uploadChatImage(file, user.id, setUploadProgress);
 
-        setUploadProgress(null);
-        setIsLoading(true);
+      // Replace temporary message with the final one containing the Firebase URL
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempMessageId ? { ...msg, content: 'Here is my e-waste item.', imageUrl: downloadURL } : msg
+      ));
 
-        const result = await analyzeImage(file);
-        const aiResponse: ChatMessage = {
-            id: `ai-analysis-${Date.now()}`,
-            sender: 'ai',
-            type: 'analysis',
-            content: result,
-        };
-        setMessages(prev => [...prev, aiResponse]);
-        setIdentifiedItem(result);
+      setUploadProgress(null);
+      setIsLoading(true);
+
+      const result = await analyzeImage(file);
+      const aiResponse: ChatMessage = {
+        id: `ai-analysis-${Date.now()}`,
+        sender: 'ai',
+        type: 'analysis',
+        content: result,
+        actionButtons: ['Send manually', 'Schedule pickup', 'Just asking'],
+      };
+      setMessages(prev => [...prev, aiResponse]);
+      setIdentifiedItem(result);
     } catch (error: any) {
-        setUploadError(error.message || "An unknown error occurred during upload.");
-        // Remove the temporary message on failure
-        setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
+      setUploadError(error.message || "An unknown error occurred during upload.");
+      // Remove the temporary message on failure
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
     } finally {
-        setIsLoading(false);
-        setUploadProgress(null);
-        URL.revokeObjectURL(localImageUrl); // Clean up blob URL
+      setIsLoading(false);
+      setUploadProgress(null);
+      URL.revokeObjectURL(localImageUrl); // Clean up blob URL
     }
   };
 
@@ -129,8 +180,8 @@ const handleSendMessage = async (e: React.FormEvent) => {
     if (msg.type === 'image' && msg.imageUrl) {
       return (
         <div>
-            <img src={msg.imageUrl} alt="E-waste" className="rounded-lg max-w-xs" />
-            <p className="text-xs mt-1 opacity-80">{msg.content as string}</p>
+          <img src={msg.imageUrl} alt="E-waste" className="rounded-lg max-w-xs" />
+          <p className="text-xs mt-1 opacity-80">{msg.content as string}</p>
         </div>
       );
     }
@@ -146,12 +197,43 @@ const handleSendMessage = async (e: React.FormEvent) => {
           <p className="text-xs italic bg-green-100/70 p-2 rounded-md">"{item.environmentalImpact}"</p>
           {item.hazardFlag && <HazardWarning item={item} />}
           {(item.category === 'phone' || item.category === 'laptop') && <DataSafetyGuide item={item} />}
+          {msg.actionButtons && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {msg.actionButtons.map((label) => (
+                <button
+                  key={label}
+                  onClick={() => handleQuickReply(label, label === 'Schedule pickup' ? item : undefined)}
+                  className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-800 border border-green-300 hover:bg-green-200 transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
-    return <p>{msg.content as string}</p>;
+    // Text message (user or AI) – show content and action buttons when present
+    return (
+      <div>
+        <p>{msg.content as string}</p>
+        {msg.actionButtons && msg.sender === 'ai' && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {msg.actionButtons.map((label) => (
+              <button
+                key={label}
+                onClick={() => handleQuickReply(label, undefined)}
+                className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-800 border border-green-300 hover:bg-green-200 transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
-  
+
   const isUploading = uploadProgress !== null;
 
   return (
@@ -165,34 +247,34 @@ const handleSendMessage = async (e: React.FormEvent) => {
             </div>
           </div>
         ))}
-         {isLoading && (
-            <div className="flex items-end gap-3 justify-start">
-              <div className="w-8 h-8 rounded-full bg-green-500 flex-shrink-0"></div>
-              <div className="bg-gray-200 text-gray-800 p-3 rounded-2xl rounded-bl-none">
-                <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse delay-150"></div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse delay-300"></div>
-                    <span className="text-sm">Analyzing...</span>
-                </div>
+        {isLoading && (
+          <div className="flex items-end gap-3 justify-start">
+            <div className="w-8 h-8 rounded-full bg-green-500 flex-shrink-0"></div>
+            <div className="bg-gray-200 text-gray-800 p-3 rounded-2xl rounded-bl-none">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse delay-150"></div>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse delay-300"></div>
+                <span className="text-sm">Analyzing...</span>
               </div>
             </div>
-          )}
+          </div>
+        )}
       </div>
-      
+
       {(isUploading || uploadError) && (
         <div className="px-4 pb-2">
-            {isUploading && (
-              <>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
-                </div>
-                <p className="text-xs text-center text-gray-600 mt-1">Uploading... {Math.round(uploadProgress!)}%</p>
-              </>
-            )}
-            {uploadError && (
-              <p className="text-xs text-center text-red-600 mt-1">{uploadError}</p>
-            )}
+          {isUploading && (
+            <>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
+              </div>
+              <p className="text-xs text-center text-gray-600 mt-1">Uploading... {Math.round(uploadProgress!)}%</p>
+            </>
+          )}
+          {uploadError && (
+            <p className="text-xs text-center text-red-600 mt-1">{uploadError}</p>
+          )}
         </div>
       )}
 
