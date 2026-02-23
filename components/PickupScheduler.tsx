@@ -40,6 +40,11 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
     });
   }, []);
 
+  const handleDirectToCentre = (lat: number, lng: number) => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    window.open(url, '_blank');
+  };
+
   const handleSchedulePickup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -72,13 +77,10 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
             console.log("Pooled request IDs:", pooledIds);
             console.log("User IDs:", userIds);
 
-            // Only send emails if 5 users successfully pooled
             if (pooledIds.length >= 5) {
               const pooledUsers = await fetchUserEmails(userIds);
               console.log("Pooled users:", pooledUsers);
-              console.log("Service ID:", import.meta.env.VITE_EMAILJS_SERVICE_ID);
-              console.log("Template ID:", import.meta.env.VITE_EMAILJS_TEMPLATE_ID);
-              console.log("Public Key:", import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
+
               await Promise.all(
                 pooledUsers.map((pooledUser) =>
                   sendPickupConfirmation(
@@ -149,14 +151,23 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
             <h3 className="text-xl font-bold text-green-700 mb-4">Nearby Recycling Centers</h3>
             <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
               {mockRecyclingCenters.map(center => (
-                <div key={center.id} className="bg-gray-100 p-4 rounded-lg">
-                  <h4 className="font-semibold">
-                    {center.name} - {userLocation
-                      ? getDistanceKm(userLocation.lat, userLocation.lng, center.lat, center.lng).toFixed(1)
-                      : center.distance}km away
-                  </h4>
-                  <p className="text-sm text-gray-600">{center.address}</p>
+                <div key={center.id} className="bg-gray-100 p-4 rounded-lg border border-transparent hover:border-green-500 transition-all">
+                  <div className="flex justify-between">
+                    <h4 className="font-bold text-gray-800">{center.name}</h4>
+                    <span className="text-xs font-bold text-green-600">
+                      {userLocation
+                        ? getDistanceKm(userLocation.lat, userLocation.lng, center.lat, center.lng).toFixed(1)
+                        : center.distance}km
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">{center.address}</p>
                   <p className="text-xs mt-1">Hours: {center.operatingHours} | Contact: {center.contact}</p>
+                  <button
+                    onClick={() => handleDirectToCentre(center.lat, center.lng)}
+                    className="mt-3 w-full py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700"
+                  >
+                    Select & Navigate
+                  </button>
                 </div>
               ))}
             </div>
@@ -167,7 +178,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           <div>
             <h3 className="text-xl font-bold text-green-700 mb-4">Schedule a Community Pickup</h3>
 
-            {/* Waiting state */}
             {poolStatus === 'waiting' && (
               <div className="text-center p-6 bg-yellow-50 border border-yellow-300 rounded-lg">
                 <div className="text-5xl mb-4">⏳</div>
@@ -177,7 +187,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
               </div>
             )}
 
-            {/* Pooled state */}
             {poolStatus === 'pooled' && (
               <div className="text-center p-6 bg-green-50 border border-green-300 rounded-lg">
                 <div className="text-5xl mb-4 animate-bounce">🎉</div>
@@ -187,7 +196,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
               </div>
             )}
 
-            {/* Form */}
             {poolStatus === 'idle' && (
               <form onSubmit={handleSchedulePickup} className="space-y-4">
                 <div>
