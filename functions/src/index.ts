@@ -48,6 +48,24 @@ export const setUserRole = onCall(async (request) => {
   return { success: true, message: `Role '${role}' set for user ${uid}` };
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: verifyAndCredit
+// ─────────────────────────────────────────────────────────────────────────────
+export const setDefaultRole = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  // Only set role if the user has no role yet
+  const existingClaims = (await admin.auth().getUser(request.auth.uid)).customClaims;
+  if (existingClaims?.role) {
+    return { success: true, message: 'Role already set.' };
+  }
+
+  await admin.auth().setCustomUserClaims(request.auth.uid, { role: 'user' });
+
+  return { success: true };
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FUNCTION: createTransaction 

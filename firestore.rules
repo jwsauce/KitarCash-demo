@@ -5,23 +5,19 @@ service cloud.firestore {
 
     // ─── USERS COLLECTION ──────────────────────────────────────────────
     match /users/{uid} {
-
-      // A user can read their own document only
       allow read: if request.auth != null && request.auth.uid == uid;
 
-      // A user can create their own document at signup
-      // but cannot set walletBalance in the initial write
+      // Allow create WITH walletBalance only if value is 0
       allow create: if request.auth != null
         && request.auth.uid == uid
-        && !('walletBalance' in request.resource.data);
+        && request.resource.data.walletBalance == 0;
 
-      // A user can update their own document
-      // but CANNOT touch walletBalance or role — ever
+      // Allow update but NEVER change walletBalance or role
       allow update: if request.auth != null
         && request.auth.uid == uid
         && !('walletBalance' in request.resource.data.diff(resource.data).affectedKeys())
         && !('role' in request.resource.data.diff(resource.data).affectedKeys());
-    }
+      }
 
     // ─── TRANSACTIONS COLLECTION ───────────────────────────────────────
     match /transactions/{txnId} {

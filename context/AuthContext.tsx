@@ -114,12 +114,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         uid: credential.user.uid,
         email: credential.user.email,
         displayName: fullName,
-        fullName: fullName,      // ← ADD THIS for email service compatibility
+        fullName: fullName,      //  for email service compatibility
         role: 'user',
         walletBalance: 0,
         centerId: null,
         createdAt: serverTimestamp(),
       });
+
+      // After the setDoc call in signup:
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const setDefaultRole = httpsCallable(getFunctions(), 'setDefaultRole');
+      await setDefaultRole({});
+
+      // Then force token refresh so the new claim is available immediately
+      await credential.user.getIdToken(true);
 
       // New signups default to 'user' role — redirect to user dashboard
       setUser({ id: credential.user.uid, email: credential.user.email!, displayName: fullName });
