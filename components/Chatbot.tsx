@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { UploadIcon, SendIcon } from './IconComponents';
 import DataSafetyGuide from './DataSafetyGuide';
 import HazardWarning from './HazardWarning';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 interface ChatbotProps {
   setIdentifiedItem: (item: EWasteItem | null) => void;
@@ -25,7 +26,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
-  const handleQuickReply = (label: string, item?: EWasteItem) => {
+  const handleQuickReply = async (label: string, item?: EWasteItem) => {
     const userMessage: ChatMessage = {
       id: `user-quick-${Date.now()}`,
       sender: 'user',
@@ -48,10 +49,31 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
     }
 
     if (label === 'Send manually') {
+  // If we have an identified item from Gemini, create a real transaction
+  if (item) {
+    try {
+      const functions = getFunctions();
+      const createTransaction = httpsCallable(functions, 'createTransaction');
+      await createTransaction({
+        itemName: item.itemName,
+        itemCategory: item.category,
+        estimatedValueMin: item.estimatedValue.min,
+        estimatedValueMax: item.estimatedValue.max,
+      });
+      // After creating the transaction, send user to Wallet to see their QR
+      setCurrentView('wallet');
+    } catch (err: any) {
+      console.error('Failed to create transaction:', err);
+      // Fall back to the pickup screen
       setPickupOption('manual');
       setCurrentView('pickup');
-      return;
     }
+  } else {
+    setPickupOption('manual');
+    setCurrentView('pickup');
+  }
+  return;
+}
 
     // For other buttons, trigger text analysis as normal
     setIsLoading(true);

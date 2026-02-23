@@ -12,8 +12,11 @@
     "@emailjs/browser": "^4.4.1",
     "@google/genai": "^1.42.0",
     "firebase": "^12.9.0",
+    "html5-qrcode": "^2.3.8",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.0"
   },
   "devDependencies": {
     "@types/google.maps": "^3.58.1",

@@ -9,8 +9,10 @@ import { sendPickupConfirmation } from '../services/emailService';
 interface PickupSchedulerProps {
   identifiedItem: EWasteItem | null;
   initialOption?: 'manual' | 'pickup' | null;
+  setCurrentView: (view: 'chatbot' | 'pickup' | 'wallet') => void;
 }
 
+// Used for live distance calculation in the manual drop-off view
 const getDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -23,7 +25,7 @@ const getDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initialOption = null }) => {
+const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initialOption = null, setCurrentView }) => {
   const { user } = useAuth();
   const [option, setOption] = useState<'manual' | 'pickup' | null>(initialOption);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,6 +33,7 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
   const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
+  // Get user's live location for distance calculation
   useEffect(() => {
     navigator.geolocation.getCurrentPosition((position) => {
       setUserLocation({
@@ -40,6 +43,7 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
     });
   }, []);
 
+  // Opens Google Maps directions to a recycling center
   const handleDirectToCentre = (lat: number, lng: number) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     window.open(url, '_blank');
@@ -115,6 +119,32 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
     );
   };
 
+  // Calls createTransaction Cloud Function and redirects to Wallet to show QR
+  const handleSendManually = async () => {
+    if (!identifiedItem) {
+      // No item identified yet — just show the center list
+      setOption('manual');
+      return;
+    }
+
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const fn = httpsCallable(getFunctions(), 'createTransaction');
+      await fn({
+        itemName: identifiedItem.itemName,
+        itemCategory: identifiedItem.category,
+        estimatedValueMin: identifiedItem.estimatedValue.min,
+        estimatedValueMax: identifiedItem.estimatedValue.max,
+      });
+      // Transaction created — go to Wallet to show QR
+      setCurrentView('wallet');
+    } catch (err: any) {
+      console.error('Failed to create transaction:', err);
+      // Fall back to showing center list
+      setOption('manual');
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Left side: Map and options */}
@@ -126,11 +156,17 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button onClick={() => setOption('manual')} className={`p-4 rounded-lg text-left transition-all duration-300 ${option === 'manual' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
+          <button
+            onClick={handleSendManually}
+            className={`p-4 rounded-lg text-left transition-all duration-300 ${option === 'manual' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
+          >
             <h3 className="font-bold">Send Manually</h3>
             <p className="text-sm">Find the nearest recycling center to drop off your items.</p>
           </button>
-          <button onClick={() => setOption('pickup')} className={`p-4 rounded-lg text-left transition-all duration-300 ${option === 'pickup' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
+          <button
+            onClick={() => setOption('pickup')}
+            className={`p-4 rounded-lg text-left transition-all duration-300 ${option === 'pickup' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
+          >
             <h3 className="font-bold">Schedule Pickup</h3>
             <p className="text-sm">Join a community pool for a free or discounted pickup.</p>
           </button>
@@ -163,7 +199,7 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
                   <p className="text-xs mt-1">Hours: {center.operatingHours} | Contact: {center.contact}</p>
                   <button
                     onClick={() => handleDirectToCentre(center.lat, center.lng)}
-                    className="mt-3 w-full py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700"
+                    className="mt-3 w-full py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors"
                   >
                     Select & Navigate
                   </button>
