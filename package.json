@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-<<<<<<< HEAD
+    "@emailjs/browser": "^4.4.1",
     "@google/genai": "^1.42.0",
     "firebase": "^12.9.0",
     "react": "^19.2.4",
@@ -17,13 +17,6 @@
   },
   "devDependencies": {
     "@types/google.maps": "^3.58.1",
-=======
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "firebase": "^12.9.0"
-  },
-  "devDependencies": {
->>>>>>> origin/main
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",

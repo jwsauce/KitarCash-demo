@@ -1,17 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EWasteItem } from '../types';
-<<<<<<< HEAD
-=======
 import { mockRecyclingCenters } from '../services/mockData';
->>>>>>> origin/main
 import MapComponent from './MapComponent';
-import { savePickupRequest, countNearbyRequests, runPoolingAlgorithm } from '../services/firestoreService';
+import { savePickupRequest, countNearbyRequests, runPoolingAlgorithm, fetchUserEmails } from '../services/firestoreService';
 import { useAuth } from '../context/AuthContext';
+import { sendPickupConfirmation } from '../services/emailService';
 
 interface PickupSchedulerProps {
   identifiedItem: EWasteItem | null;
   initialOption?: 'manual' | 'pickup' | null;
 }
+
+const getDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initialOption = null }) => {
   const { user } = useAuth();
@@ -19,57 +29,31 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [poolStatus, setPoolStatus] = useState<'idle' | 'waiting' | 'pooled'>('idle');
   const [error, setError] = useState<string | null>(null);
-<<<<<<< HEAD
-  const [dynamicCenters, setDynamicCenters] = useState<any[]>([]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // --- 新增：导航跳转函数 ---
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition((position) => {
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+    });
+  }, []);
+
   const handleDirectToCentre = (lat: number, lng: number) => {
-    // 构造 Google Maps 导航链接
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     window.open(url, '_blank');
   };
 
-  // --- 这里的 Schedule Pickup 逻辑完全保持原样，未做修改 ---
-=======
-
-  console.log("Current poolStatus:", poolStatus);
-
->>>>>>> origin/main
   const handleSchedulePickup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
-<<<<<<< HEAD
-    const form = e.target as HTMLFormElement;
-
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      const { latitude: lat, longitude: lng } = position.coords;
-      try {
-        await savePickupRequest({
-          userId: user?.id || 'anonymous',
-          address: (form.address as any).value,
-          item: (form.item as any).value,
-          quantity: Number((form.quantity as any).value),
-          addOn: (form.addOn as any).value || '',
-          lat, lng, status: 'waiting', createdAt: new Date().toISOString(),
-        });
-        const nearbyCount = await countNearbyRequests(lat, lng);
-        if (nearbyCount >= 5) {
-          await runPoolingAlgorithm(lat, lng);
-          setPoolStatus('pooled');
-        } else {
-          setPoolStatus('waiting');
-        }
-      } catch (err) { setError('Failed to submit.'); }
-      finally { setIsSubmitting(false); }
-    });
-=======
 
     const form = e.target as HTMLFormElement;
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        console.log("Got location:", position.coords);
         const { latitude: lat, longitude: lng } = position.coords;
 
         try {
@@ -89,8 +73,29 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           console.log("Nearby count:", nearbyCount);
 
           if (nearbyCount >= 5) {
-            const pooledIds = await runPoolingAlgorithm(lat, lng);
+            const { pooledIds, userIds } = await runPoolingAlgorithm(lat, lng);
             console.log("Pooled request IDs:", pooledIds);
+            console.log("User IDs:", userIds);
+
+            if (pooledIds.length >= 5) {
+              const pooledUsers = await fetchUserEmails(userIds);
+              console.log("Pooled users:", pooledUsers);
+
+              await Promise.all(
+                pooledUsers.map((pooledUser) =>
+                  sendPickupConfirmation(
+                    pooledUser.email,
+                    pooledUser.fullName,
+                    (form.item as any).value,
+                    (form.address as any).value,
+                    new Date().toISOString(),
+                    'To be assigned'
+                  )
+                )
+              );
+              console.log(`Confirmation emails sent to ${pooledUsers.length} users!`);
+            }
+
             setPoolStatus('pooled');
           } else {
             setPoolStatus('waiting');
@@ -108,29 +113,14 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
         setIsSubmitting(false);
       }
     );
->>>>>>> origin/main
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-<<<<<<< HEAD
-      <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 flex flex-col">
-        <h2 className="text-2xl font-bold text-green-700 mb-4">Find a Drop-off or Schedule a Pickup</h2>
-        <div className="w-full mb-6">
-          <MapComponent onDataLoaded={(data) => setDynamicCenters(data)} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => setOption('manual')} className={`p-4 rounded-lg font-bold ${option === 'manual' ? 'bg-green-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700'}`}>
-            Send Manually
-          </button>
-          <button onClick={() => setOption('pickup')} className={`p-4 rounded-lg font-bold ${option === 'pickup' ? 'bg-green-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700'}`}>
-            Schedule Pickup
-=======
       {/* Left side: Map and options */}
       <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 flex flex-col">
         <h2 className="text-2xl font-bold text-green-700 mb-4">Find a Drop-off or Schedule a Pickup</h2>
 
-        {/* Google Map */}
         <div className="w-full mb-6">
           <MapComponent centers={mockRecyclingCenters} height="250px" />
         </div>
@@ -143,14 +133,10 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           <button onClick={() => setOption('pickup')} className={`p-4 rounded-lg text-left transition-all duration-300 ${option === 'pickup' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
             <h3 className="font-bold">Schedule Pickup</h3>
             <p className="text-sm">Join a community pool for a free or discounted pickup.</p>
->>>>>>> origin/main
           </button>
         </div>
       </div>
 
-<<<<<<< HEAD
-      <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
-=======
       {/* Right side: Details based on selection */}
       <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
         {!option && (
@@ -159,59 +145,38 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           </div>
         )}
 
->>>>>>> origin/main
         {option === 'manual' && (
           <div>
             <h3 className="text-xl font-bold text-green-700 mb-4">Nearby Recycling Centers</h3>
             <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
-<<<<<<< HEAD
-              {dynamicCenters.map(center => (
+              {mockRecyclingCenters.map(center => (
                 <div key={center.id} className="bg-gray-100 p-4 rounded-lg border border-transparent hover:border-green-500 transition-all">
                   <div className="flex justify-between">
                     <h4 className="font-bold text-gray-800">{center.name}</h4>
-                    <span className="text-xs font-bold text-green-600">{center.distance.toFixed(1)}km</span>
+                    <span className="text-xs font-bold text-green-600">
+                      {userLocation
+                        ? getDistanceKm(userLocation.lat, userLocation.lng, center.lat, center.lng).toFixed(1)
+                        : center.distance}km
+                    </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">{center.address}</p>
-                  
-                  {/* 修改：点击后触发导航 */}
-                  <button 
-                    onClick={() => handleDirectToCentre(center.latitude, center.longitude)}
+                  <p className="text-sm text-gray-600 mt-1">{center.address}</p>
+                  <p className="text-xs mt-1">Hours: {center.operatingHours} | Contact: {center.contact}</p>
+                  <button
+                    onClick={() => handleDirectToCentre(center.lat, center.lng)}
                     className="mt-3 w-full py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700"
                   >
                     Select & Navigate
                   </button>
-=======
-              {mockRecyclingCenters.map(center => (
-                <div key={center.id} className="bg-gray-100 p-4 rounded-lg">
-                  <h4 className="font-semibold">{center.name} - {center.distance}km away</h4>
-                  <p className="text-sm text-gray-600">{center.address}</p>
-                  <p className="text-xs mt-1">Hours: {center.operatingHours} | Contact: {center.contact}</p>
->>>>>>> origin/main
                 </div>
               ))}
             </div>
           </div>
         )}
 
-<<<<<<< HEAD
-        {/* --- 这里是你的原始 Pickup UI，完全未做任何改动 --- */}
-        {option === 'pickup' && (
-          <div>
-            <h3 className="text-xl font-bold text-green-700 mb-4">Schedule a Community Pickup</h3>
-            {poolStatus === 'waiting' && <div className="text-center p-6 bg-yellow-50 rounded-lg italic text-yellow-800">Request Submitted! Waiting for pool...</div>}
-            {poolStatus === 'pooled' && <div className="text-center p-6 bg-green-50 rounded-lg font-bold text-green-800 text-2xl">Community Goal Reached!</div>}
-            {poolStatus === 'idle' && (
-              <form onSubmit={handleSchedulePickup} className="space-y-4">
-                <input type="text" name="address" required className="w-full p-2 border rounded text-gray-800" placeholder="Address" />
-                <input type="text" name="item" defaultValue={identifiedItem?.itemName || ''} required className="w-full p-2 border rounded text-gray-800" />
-                <input type="number" name="quantity" defaultValue={1} className="w-full p-2 border rounded text-gray-800" />
-                <button type="submit" disabled={isSubmitting} className="w-full bg-green-600 text-white font-bold py-3 rounded-lg">
-=======
         {option === 'pickup' && (
           <div>
             <h3 className="text-xl font-bold text-green-700 mb-4">Schedule a Community Pickup</h3>
 
-            {/* Waiting state */}
             {poolStatus === 'waiting' && (
               <div className="text-center p-6 bg-yellow-50 border border-yellow-300 rounded-lg">
                 <div className="text-5xl mb-4">⏳</div>
@@ -221,7 +186,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
               </div>
             )}
 
-            {/* Pooled state */}
             {poolStatus === 'pooled' && (
               <div className="text-center p-6 bg-green-50 border border-green-300 rounded-lg">
                 <div className="text-5xl mb-4 animate-bounce">🎉</div>
@@ -231,7 +195,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
               </div>
             )}
 
-            {/* Form */}
             {poolStatus === 'idle' && (
               <form onSubmit={handleSchedulePickup} className="space-y-4">
                 <div>
@@ -261,7 +224,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
 
                 <button type="submit" disabled={isSubmitting}
                   className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-500">
->>>>>>> origin/main
                   {isSubmitting ? 'Submitting...' : 'Join Pickup Pool'}
                 </button>
               </form>

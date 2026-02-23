@@ -66,4 +66,7 @@ export interface PickupRequest {
   lng: number;
   status: 'waiting' | 'pooled' | 'assigned' | 'completed';
   createdAt: string;
+  poolId?: string;  
+  pooledAt?: string; 
+  pickupTime?: string;
 }

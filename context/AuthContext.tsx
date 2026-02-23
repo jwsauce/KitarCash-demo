@@ -1,7 +1,8 @@
-
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { auth } from '../firebase';
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "../firebase";
 import { 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 
@@ -69,8 +70,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await updateProfile(userCredential.user, {
         displayName: fullName
       });
-      // The onAuthStateChanged listener will pick up the new user and update the state.
-      // We can also set it here to ensure the UI updates instantly with the full name.
+
+      // Save user to Firestore users collection 👇
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        fullName,
+        email,
+        createdAt: new Date().toISOString(),
+      });
+
       setUser({
         id: userCredential.user.uid,
         email: userCredential.user.email!,
