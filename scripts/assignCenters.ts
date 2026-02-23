@@ -2,12 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBZcsmaKr8TOQ7Tqwa65z4gh6ZCpdlYhlk",
-  authDomain: "kitarcash.firebaseapp.com",
-  projectId: "kitarcash",
-  storageBucket: "kitarcash.appspot.com",
-  messagingSenderId: "929687561236",
-  appId: "1:929687561236:web:d85694e588600e866cf301"
+  // api keys here yaaaa :)
 };
 
 
