@@ -59,6 +59,7 @@ export interface PickupRequest {
   id?: string;
   userId: string;
   address: string;
+  contactNumber?: string;
   item: string;
   quantity: number;
   addOn: string;

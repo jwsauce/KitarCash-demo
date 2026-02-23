@@ -2,7 +2,6 @@ import { collection, addDoc, getDocs, updateDoc, doc, getDoc } from "firebase/fi
 import { db } from "../firebase";
 import { PickupRequest } from "../types";
 
-// Haversine formula
 const getDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -30,12 +29,11 @@ export const fetchPickupRequests = async (): Promise<PickupRequest[]> => {
 
 export const countNearbyRequests = async (lat: number, lng: number): Promise<number> => {
   const all = await fetchPickupRequests();
-  return all.filter(
-    (r) => r.status === 'waiting' && getDistanceKm(lat, lng, r.lat, r.lng) <= 2
-  ).length;
+  return all
+    .filter((r) => r.status === 'waiting' && getDistanceKm(lat, lng, r.lat, r.lng) <= 2)
+    .reduce((sum, r) => sum + (r.quantity || 1), 0);
 };
 
-// Updated — returns both pooledIds and userIds
 export const runPoolingAlgorithm = async (lat: number, lng: number): Promise<{ pooledIds: string[]; userIds: string[] }> => {
   const all = await fetchPickupRequests();
 
@@ -43,7 +41,8 @@ export const runPoolingAlgorithm = async (lat: number, lng: number): Promise<{ p
     (r) => r.status === 'waiting' && r.id && getDistanceKm(lat, lng, r.lat, r.lng) <= 2
   );
 
-  if (nearby.length < 5) return { pooledIds: [], userIds: [] };
+  const totalQuantity = nearby.reduce((sum, r) => sum + (r.quantity || 1), 0);
+  if (totalQuantity < 5) return { pooledIds: [], userIds: [] };
 
   const poolId = `pool-${Date.now()}`;
   const pooledIds: string[] = [];
@@ -57,14 +56,13 @@ export const runPoolingAlgorithm = async (lat: number, lng: number): Promise<{ p
         poolId,
       });
       pooledIds.push(request.id!);
-      userIds.push(request.userId); // 👈 collect user IDs
+      userIds.push(request.userId);
     })
   );
 
   return { pooledIds, userIds };
 };
 
-// Fetch emails of all pooled users
 export const fetchUserEmails = async (userIds: string[]): Promise<{ email: string; fullName: string }[]> => {
   const users = await Promise.all(
     userIds.map(async (userId) => {
