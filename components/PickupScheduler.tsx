@@ -12,7 +12,6 @@ interface PickupSchedulerProps {
   setCurrentView: (view: 'chatbot' | 'pickup' | 'wallet') => void;
 }
 
-// Used for live distance calculation in the manual drop-off view
 const getDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -33,7 +32,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
   const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Get user's live location for distance calculation
   useEffect(() => {
     navigator.geolocation.getCurrentPosition((position) => {
       setUserLocation({
@@ -43,7 +41,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
     });
   }, []);
 
-  // Opens Google Maps directions to a recycling center
   const handleDirectToCentre = (lat: number, lng: number) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     window.open(url, '_blank');
@@ -64,6 +61,7 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           await savePickupRequest({
             userId: user?.id || 'anonymous',
             address: (form.address as any).value,
+            contactNumber: (form.contactNumber as any).value,
             item: (form.item as any).value,
             quantity: Number((form.quantity as any).value),
             addOn: (form.addOn as any).value || '',
@@ -74,14 +72,14 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           });
 
           const nearbyCount = await countNearbyRequests(lat, lng);
-          console.log("Nearby count:", nearbyCount);
+          console.log("Nearby total quantity:", nearbyCount);
 
           if (nearbyCount >= 5) {
             const { pooledIds, userIds } = await runPoolingAlgorithm(lat, lng);
             console.log("Pooled request IDs:", pooledIds);
             console.log("User IDs:", userIds);
 
-            if (pooledIds.length >= 5) {
+            if (pooledIds.length >= 1) {
               const pooledUsers = await fetchUserEmails(userIds);
               console.log("Pooled users:", pooledUsers);
 
@@ -119,10 +117,8 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
     );
   };
 
-  // Calls createTransaction Cloud Function and redirects to Wallet to show QR
   const handleSendManually = async () => {
     if (!identifiedItem) {
-      // No item identified yet — just show the center list
       setOption('manual');
       return;
     }
@@ -136,18 +132,15 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
         estimatedValueMin: identifiedItem.estimatedValue.min,
         estimatedValueMax: identifiedItem.estimatedValue.max,
       });
-      // Transaction created — go to Wallet to show QR
       setCurrentView('wallet');
     } catch (err: any) {
       console.error('Failed to create transaction:', err);
-      // Fall back to showing center list
       setOption('manual');
     }
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Left side: Map and options */}
       <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 flex flex-col">
         <h2 className="text-2xl font-bold text-green-700 mb-4">Find a Drop-off or Schedule a Pickup</h2>
 
@@ -173,7 +166,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
         </div>
       </div>
 
-      {/* Right side: Details based on selection */}
       <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
         {!option && (
           <div className="flex items-center justify-center h-full">
@@ -238,6 +230,12 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
                   <input type="text" id="address" name="address" required
                     className="w-full mt-1 bg-white text-gray-800 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                     placeholder="123, Jalan Hijau, Kuala Lumpur" />
+                </div>
+                <div>
+                  <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-600">Contact Number</label>
+                  <input type="tel" id="contactNumber" name="contactNumber" required
+                    className="w-full mt-1 bg-white text-gray-800 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g. 012-3456789" />
                 </div>
                 <div>
                   <label htmlFor="item" className="block text-sm font-medium text-gray-600">Item</label>
