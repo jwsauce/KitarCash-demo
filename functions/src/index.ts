@@ -179,10 +179,9 @@ export const verifyAndCredit = onCall(async (request) => {
       });
     }
 
-    const currentBalance = userSnap.data()!.walletBalance || 0;
-
-    // 5d. Perform both writes atomically
-    // Write 1: Update the transaction record
+    
+    // 5d. Perform writes atomically
+    // Write: Update the transaction record
     firestoreTransaction.update(txnRef, {
       status: 'paid',
       finalReward,
@@ -194,13 +193,6 @@ export const verifyAndCredit = onCall(async (request) => {
       verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
       paidAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-
-    // Write 2: Increment user's wallet balance
-    firestoreTransaction.update(userRef, {
-      walletBalance: currentBalance + finalReward,
-    });
-
-    // Both writes are committed together. If either fails, both are rolled back.
   });
 
   return { success: true };

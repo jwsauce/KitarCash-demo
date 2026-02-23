@@ -114,7 +114,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         uid: credential.user.uid,
         email: credential.user.email,
         displayName: fullName,
-        role: 'user',       // Default role — changed later by setUserRole Cloud Function
+        fullName: fullName,      // ← ADD THIS for email service compatibility
+        role: 'user',
         walletBalance: 0,
         centerId: null,
         createdAt: serverTimestamp(),
