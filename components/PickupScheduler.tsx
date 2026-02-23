@@ -121,7 +121,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
       <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 flex flex-col">
         <h2 className="text-2xl font-bold text-green-700 mb-4">Find a Drop-off or Schedule a Pickup</h2>
 
-        {/* Google Map */}
         <div className="w-full mb-6">
           <MapComponent centers={mockRecyclingCenters} height="250px" />
         </div>
