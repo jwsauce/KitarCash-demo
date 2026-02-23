@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { CheckCircleIcon, QrCodeIcon } from './IconComponents';
+import ConfirmationModal from './ConfirmationModal';
 
 interface Transaction {
   txnId: string;
@@ -25,6 +26,7 @@ const Wallet: React.FC = () => {
   const [activeQrTxnId, setActiveQrTxnId] = useState<string | null>(null);
   const [isCreatingTxn, setIsCreatingTxn] = useState(false);
   const [txnError, setTxnError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Listen to wallet balance in real-time
   useEffect(() => {
@@ -60,9 +62,12 @@ const Wallet: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const handleGenerateQR = async () => {
-    // This should be called from Chatbot after Gemini identifies an item.
-    // For demo purposes, you can also trigger it from here with a test item.
+  const handleGenerateQR = () => {
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmGenerateQR = async () => {
+    setShowConfirmModal(false);
     setIsCreatingTxn(true);
     setTxnError(null);
     try {
@@ -96,6 +101,16 @@ const Wallet: React.FC = () => {
   };
 
   return (
+    <>
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        title="Confirm Manual Drop-off"
+        message="Are you sure you want to generate a QR code for manual drop-off? This will create a recycling transaction."
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmGenerateQR}
+        onCancel={() => setShowConfirmModal(false)}
+      />
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
       {/* Left: Balance + QR */}
@@ -191,6 +206,7 @@ const Wallet: React.FC = () => {
       </div>
 
     </div>
+    </>
   );
 };
 
