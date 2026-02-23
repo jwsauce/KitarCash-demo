@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import { collection, addDoc, getDocs, updateDoc, doc } from "firebase/firestore";
 import { db } from "../firebase";
 import { PickupRequest } from "../types";
 

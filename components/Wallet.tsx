@@ -1,75 +1,197 @@
-
-import React, { useState } from 'react';
-import { mockTransactions, mockActiveRequest } from '../services/mockData';
-import { Transaction, TransactionStatus } from '../types';
+import React, { useState, useEffect } from 'react';
+import { collection, query, where, orderBy, onSnapshot, doc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { QRCodeSVG } from 'qrcode.react';
+import { db } from '../firebase';
+import { useAuth } from '../context/AuthContext';
 import { CheckCircleIcon, QrCodeIcon } from './IconComponents';
 
+interface Transaction {
+  txnId: string;
+  itemName: string;
+  itemCategory: string;
+  estimatedValueMin: number;
+  estimatedValueMax: number;
+  status: string;
+  finalReward: number | null;
+  createdAt: any;
+  paidAt: any;
+}
+
 const Wallet: React.FC = () => {
-    const [showQr, setShowQr] = useState(false);
-    const walletBalance = mockTransactions.reduce((acc, t) => acc + t.amount, 0);
+  const { user } = useAuth();
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [activeQrTxnId, setActiveQrTxnId] = useState<string | null>(null);
+  const [isCreatingTxn, setIsCreatingTxn] = useState(false);
+  const [txnError, setTxnError] = useState<string | null>(null);
 
-    const statusSteps = Object.values(TransactionStatus);
-    const currentStatusIndex = statusSteps.indexOf(mockActiveRequest.status);
+  // Listen to wallet balance in real-time
+  useEffect(() => {
+    if (!user) return;
+    console.log('Listening to wallet for UID:', user.id);
+    const userRef = doc(db, 'users', user.id);
+    const unsubscribe = onSnapshot(userRef, (snap) => {
+      console.log('User doc data:', snap.data());
+      if (snap.exists()) {
+        setWalletBalance(snap.data().walletBalance || 0);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
 
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column: Balance and QR */}
-            <div className="lg:col-span-1 space-y-8">
-                <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 text-center">
-                    <h2 className="text-lg font-medium text-green-700">Wallet Balance</h2>
-                    <p className="text-5xl font-bold text-green-600 mt-2">RM{walletBalance.toFixed(2)}</p>
-                </div>
-
-                <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
-                    <h3 className="text-xl font-bold text-green-700 mb-4">Your QR Code</h3>
-                    {showQr ? (
-                         <div className="flex flex-col items-center">
-                             <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=KitarCash-TXN-12345" alt="Mock QR Code" className="rounded-lg bg-white p-2" />
-                             <p className="text-xs text-gray-500 mt-2">Show this at the collection point.</p>
-                             <button onClick={() => setShowQr(false)} className="mt-4 text-sm text-green-600 hover:underline">Hide QR</button>
-                         </div>
-                    ) : (
-                         <button onClick={() => setShowQr(true)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center space-x-2">
-                            <QrCodeIcon className="w-6 h-6" />
-                            <span>Generate for Current Request</span>
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Middle Column: Active Request Tracker */}
-            <div className="lg:col-span-1 bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-green-700 mb-4">Active Request Tracker</h3>
-                <p className="text-md font-semibold">{mockActiveRequest.item}</p>
-                <div className="relative mt-6 pl-4 border-l-2 border-gray-300">
-                    {statusSteps.map((status, index) => (
-                        <div key={status} className="mb-8 relative">
-                            <div className={`absolute -left-[23px] top-1 w-8 h-8 rounded-full flex items-center justify-center ${index <= currentStatusIndex ? 'bg-green-500' : 'bg-gray-300'}`}>
-                                <CheckCircleIcon className="w-5 h-5 text-white" isFilled={index <= currentStatusIndex} />
-                            </div>
-                            <p className={`font-semibold ${index <= currentStatusIndex ? 'text-green-600' : 'text-gray-500'}`}>{status}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Right Column: Transaction History */}
-            <div className="lg:col-span-1 bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-green-700 mb-4">Transaction History</h3>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                    {mockTransactions.map((tx) => (
-                        <div key={tx.id} className="flex justify-between items-center bg-gray-100 p-3 rounded-lg">
-                            <div>
-                                <p className="font-semibold">{tx.item}</p>
-                                <p className="text-xs text-gray-500">{tx.date}</p>
-                            </div>
-                            <p className="font-bold text-green-600">+ RM{tx.amount.toFixed(2)}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
+  // Listen to transaction history in real-time
+  useEffect(() => {
+    if (!user) return;
+    const txnQuery = query(
+      collection(db, 'transactions'),
+      where('userId', '==', user.id),
+      orderBy('createdAt', 'desc')
     );
+    const unsubscribe = onSnapshot(txnQuery, (snap) => {
+      const txns = snap.docs.map(d => ({ txnId: d.id, ...d.data() } as Transaction));
+      setTransactions(txns);
+      // Auto-show QR for the most recent unverified transaction
+      const pending = txns.find(t => t.status === 'qr_generated');
+      if (pending && !activeQrTxnId) {
+        setActiveQrTxnId(pending.txnId);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleGenerateQR = async () => {
+    // This should be called from Chatbot after Gemini identifies an item.
+    // For demo purposes, you can also trigger it from here with a test item.
+    setIsCreatingTxn(true);
+    setTxnError(null);
+    try {
+      const functions = getFunctions();
+      const createTransaction = httpsCallable(functions, 'createTransaction');
+      const result = await createTransaction({
+        itemName: 'Test Item',
+        itemCategory: 'other',
+        estimatedValueMin: 0,
+        estimatedValueMax: 0,
+      });
+      const { txnId } = result.data as { txnId: string };
+      setActiveQrTxnId(txnId);
+    } catch (err: any) {
+      setTxnError(err.message || 'Failed to create transaction.');
+    } finally {
+      setIsCreatingTxn(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    if (status === 'paid') return 'text-green-600';
+    if (status === 'qr_generated') return 'text-yellow-600';
+    return 'text-gray-500';
+  };
+
+  const getStatusLabel = (status: string) => {
+    if (status === 'paid') return '✅ Paid';
+    if (status === 'qr_generated') return '⏳ Awaiting Verification';
+    return status;
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+      {/* Left: Balance + QR */}
+      <div className="lg:col-span-1 space-y-8">
+        <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 text-center">
+          <h2 className="text-lg font-medium text-green-700">Wallet Balance</h2>
+          <p className="text-5xl font-bold text-green-600 mt-2">
+            RM{walletBalance.toFixed(2)}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">Updated in real-time</p>
+        </div>
+
+        <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
+          <h3 className="text-xl font-bold text-green-700 mb-4">Drop-off QR Code</h3>
+          {activeQrTxnId ? (
+            <div className="flex flex-col items-center">
+              <QRCodeSVG
+                value={activeQrTxnId}
+                size={200}
+                bgColor="#ffffff"
+                fgColor="#15803d"
+                className="rounded-lg"
+              />
+              <p className="text-xs text-gray-500 mt-3 text-center">
+                Show this at the recycling center.
+              </p>
+              <p className="text-xs font-mono text-gray-400 mt-1 break-all text-center">
+                {activeQrTxnId}
+              </p>
+              <button
+                onClick={() => setActiveQrTxnId(null)}
+                className="mt-4 text-sm text-green-600 hover:underline"
+              >
+                Hide QR
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm text-gray-500 mb-4">
+                After identifying an item with the AI, tap "Send Manually" to generate your QR.
+              </p>
+              <button
+                onClick={handleGenerateQR}
+                disabled={isCreatingTxn}
+                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+              >
+                <QrCodeIcon className="w-6 h-6" />
+                <span>{isCreatingTxn ? 'Generating...' : 'Generate Test QR'}</span>
+              </button>
+              {txnError && <p className="text-red-500 text-sm mt-2">{txnError}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right: Transaction History */}
+      <div className="lg:col-span-2 bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
+        <h3 className="text-xl font-bold text-green-700 mb-4">Transaction History</h3>
+        {transactions.length === 0 ? (
+          <p className="text-gray-400 text-center py-8">
+            No transactions yet. Identify an item and send it manually to get started!
+          </p>
+        ) : (
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            {transactions.map((tx) => (
+              <div key={tx.txnId} className="bg-gray-100 p-4 rounded-lg">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold">{tx.itemName}</p>
+                    <p className="text-xs text-gray-500 capitalize">{tx.itemCategory}</p>
+                    <p className={`text-sm font-medium mt-1 ${getStatusColor(tx.status)}`}>
+                      {getStatusLabel(tx.status)}
+                    </p>
+                    {tx.status === 'qr_generated' && (
+                      <button
+                        onClick={() => setActiveQrTxnId(tx.txnId)}
+                        className="text-xs text-green-600 hover:underline mt-1"
+                      >
+                        Show QR →
+                      </button>
+                    )}
+                  </div>
+                  {tx.finalReward != null ? (
+                    <p className="font-bold text-green-600 text-lg">+ RM{tx.finalReward.toFixed(2)}</p>
+                  ) : (
+                    <p className="text-sm text-gray-400">RM{tx.estimatedValueMin}–{tx.estimatedValueMax} est.</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
 };
 
 export default Wallet;

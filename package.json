@@ -9,11 +9,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^1.42.0",
+    "firebase": "^12.9.0",
+    "html5-qrcode": "^2.3.8",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "firebase": "^12.9.0"
+    "react-router-dom": "^7.13.0"
   },
   "devDependencies": {
+    "@types/google.maps": "^3.58.1",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",

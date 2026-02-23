@@ -8,9 +8,10 @@ import { useAuth } from '../context/AuthContext';
 interface PickupSchedulerProps {
   identifiedItem: EWasteItem | null;
   initialOption?: 'manual' | 'pickup' | null;
+  setCurrentView: (view: 'chatbot' | 'pickup' | 'wallet') => void;
 }
 
-const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initialOption = null }) => {
+const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initialOption = null, setCurrentView }) => {
   const { user } = useAuth();
   const [option, setOption] = useState<'manual' | 'pickup' | null>(initialOption);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,6 +70,31 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
     );
   };
 
+  const handleSendManually = async () => {
+    if (!identifiedItem) {
+      // No item identified yet — just show the center list as before
+      setOption('manual');
+      return;
+    }
+
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const fn = httpsCallable(getFunctions(), 'createTransaction');
+      await fn({
+        itemName: identifiedItem.itemName,
+        itemCategory: identifiedItem.category,
+        estimatedValueMin: identifiedItem.estimatedValue.min,
+        estimatedValueMax: identifiedItem.estimatedValue.max,
+      });
+      // Transaction created — navigate to wallet to show QR
+      setCurrentView('wallet');
+    } catch (err: any) {
+      console.error('Failed to create transaction:', err);
+      // Fall back to showing center list
+      setOption('manual');
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Left side: Map and options */}
@@ -81,7 +107,7 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button onClick={() => setOption('manual')} className={`p-4 rounded-lg text-left transition-all duration-300 ${option === 'manual' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
+          <button onClick={handleSendManually} className={`p-4 rounded-lg text-left transition-all duration-300 ${option === 'manual' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
             <h3 className="font-bold">Send Manually</h3>
             <p className="text-sm">Find the nearest recycling center to drop off your items.</p>
           </button>
