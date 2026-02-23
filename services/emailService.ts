@@ -22,7 +22,7 @@ export const sendPickupConfirmation = async (
         driver_name: driverName,
       },
       {
-        publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, // pass as object
+        publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, // 👈 pass as object
       }
     );
     console.log("Email sent successfully:", result);

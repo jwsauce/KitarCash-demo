@@ -151,7 +151,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
       <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 flex flex-col">
         <h2 className="text-2xl font-bold text-green-700 mb-4">Find a Drop-off or Schedule a Pickup</h2>
 
-        {/* Google Map */}
         <div className="w-full mb-6">
           <MapComponent centers={mockRecyclingCenters} height="250px" />
         </div>
@@ -214,7 +213,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           <div>
             <h3 className="text-xl font-bold text-green-700 mb-4">Schedule a Community Pickup</h3>
 
-            {/* Waiting state */}
             {poolStatus === 'waiting' && (
               <div className="text-center p-6 bg-yellow-50 border border-yellow-300 rounded-lg">
                 <div className="text-5xl mb-4">⏳</div>
@@ -224,7 +222,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
               </div>
             )}
 
-            {/* Pooled state */}
             {poolStatus === 'pooled' && (
               <div className="text-center p-6 bg-green-50 border border-green-300 rounded-lg">
                 <div className="text-5xl mb-4 animate-bounce">🎉</div>
@@ -234,7 +231,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
               </div>
             )}
 
-            {/* Form */}
             {poolStatus === 'idle' && (
               <form onSubmit={handleSchedulePickup} className="space-y-4">
                 <div>
