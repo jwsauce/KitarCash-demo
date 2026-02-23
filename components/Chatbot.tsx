@@ -8,6 +8,7 @@ import { UploadIcon, SendIcon } from './IconComponents';
 import DataSafetyGuide from './DataSafetyGuide';
 import HazardWarning from './HazardWarning';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import ConfirmationModal from './ConfirmationModal';
 
 interface ChatbotProps {
   setIdentifiedItem: (item: EWasteItem | null) => void;
@@ -25,6 +26,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+
+  // Confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const pendingItemRef = useRef<EWasteItem | null>(null);
 
   const handleQuickReply = async (label: string, item?: EWasteItem) => {
     const userMessage: ChatMessage = {
@@ -49,29 +54,9 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
     }
 
     if (label === 'Send manually') {
-  // If we have an identified item from Gemini, create a real transaction
-  if (item) {
-    try {
-      const functions = getFunctions();
-      const createTransaction = httpsCallable(functions, 'createTransaction');
-      await createTransaction({
-        itemName: item.itemName,
-        itemCategory: item.category,
-        estimatedValueMin: item.estimatedValue.min,
-        estimatedValueMax: item.estimatedValue.max,
-      });
-      // After creating the transaction, send user to Wallet to see their QR
-      setCurrentView('wallet');
-    } catch (err: any) {
-      console.error('Failed to create transaction:', err);
-      // Fall back to the pickup screen
-      setPickupOption('manual');
-      setCurrentView('pickup');
-    }
-  } else {
-    setPickupOption('manual');
-    setCurrentView('pickup');
-  }
+  // Store the identified item and show confirmation modal before creating transaction
+  pendingItemRef.current = item ?? null;
+  setShowConfirmModal(true);
   return;
 }
 
@@ -92,6 +77,39 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
         content: `Sorry, something went wrong: ${err.message}`,
       }]);
     }).finally(() => setIsLoading(false));
+  };
+
+  // Called when user clicks Confirm in the modal
+  const handleConfirmManualSend = async () => {
+    setShowConfirmModal(false);
+    const item = pendingItemRef.current;
+    if (item) {
+      try {
+        const functions = getFunctions();
+        const createTransaction = httpsCallable(functions, 'createTransaction');
+        await createTransaction({
+          itemName: item.itemName,
+          itemCategory: item.category,
+          estimatedValueMin: item.estimatedValue.min,
+          estimatedValueMax: item.estimatedValue.max,
+        });
+        setCurrentView('wallet');
+      } catch (err: any) {
+        console.error('Failed to create transaction:', err);
+        setPickupOption('manual');
+        setCurrentView('pickup');
+      }
+    } else {
+      // No identified item — fall back to manual pickup screen
+      setPickupOption('manual');
+      setCurrentView('pickup');
+    }
+    pendingItemRef.current = null;
+  };
+
+  const handleCancelManualSend = () => {
+    setShowConfirmModal(false);
+    pendingItemRef.current = null;
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -259,6 +277,16 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
   const isUploading = uploadProgress !== null;
 
   return (
+    <>
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        title="Confirm Manual Drop-off"
+        message="Are you sure you want to generate a QR code for manual drop-off? This will create a recycling transaction."
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmManualSend}
+        onCancel={handleCancelManualSend}
+      />
     <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg overflow-hidden flex flex-col h-[70vh]">
       <div className="flex-1 p-6 space-y-4 overflow-y-auto">
         {messages.map((msg) => (
@@ -333,6 +361,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
         </form>
       </div>
     </div>
+    </>
   );
 };
 
