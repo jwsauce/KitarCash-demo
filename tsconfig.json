@@ -11,12 +11,8 @@
     ],
     "skipLibCheck": true,
     "types": [
-<<<<<<< HEAD
-    "node",
-    "google.maps"
-=======
-      "node"
->>>>>>> origin/main
+      "node",
+      "google.maps"
     ],
     "moduleResolution": "bundler",
     "isolatedModules": true,
