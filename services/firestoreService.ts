@@ -1,8 +1,8 @@
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import { collection, addDoc, getDocs, updateDoc, doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { PickupRequest } from "../types";
 
-// Haversine formula — calculates distance between 2 coordinates in km
+// Haversine formula
 const getDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -28,7 +28,6 @@ export const fetchPickupRequests = async (): Promise<PickupRequest[]> => {
   })) as PickupRequest[];
 };
 
-// Check how many waiting requests are within 2km of a given location
 export const countNearbyRequests = async (lat: number, lng: number): Promise<number> => {
   const all = await fetchPickupRequests();
   return all.filter(
@@ -36,28 +35,50 @@ export const countNearbyRequests = async (lat: number, lng: number): Promise<num
   ).length;
 };
 
-export const runPoolingAlgorithm = async (lat: number, lng: number): Promise<string[]> => {
+// Updated — returns both pooledIds and userIds
+export const runPoolingAlgorithm = async (lat: number, lng: number): Promise<{ pooledIds: string[]; userIds: string[] }> => {
   const all = await fetchPickupRequests();
 
-  // Get all waiting requests within 2km
   const nearby = all.filter(
     (r) => r.status === 'waiting' && r.id && getDistanceKm(lat, lng, r.lat, r.lng) <= 2
   );
 
-  if (nearby.length < 5) return [];
+  if (nearby.length < 5) return { pooledIds: [], userIds: [] };
 
-  // Update all nearby requests to 'pooled'
+  const poolId = `pool-${Date.now()}`;
   const pooledIds: string[] = [];
+  const userIds: string[] = [];
+
   await Promise.all(
     nearby.map(async (request) => {
       await updateDoc(doc(db, "pickupRequests", request.id!), {
         status: 'pooled',
         pooledAt: new Date().toISOString(),
+        poolId,
       });
       pooledIds.push(request.id!);
+      userIds.push(request.userId); // 👈 collect user IDs
     })
   );
-  return pooledIds; // returns IDs of all pooled requests
+
+  return { pooledIds, userIds };
+};
+
+// Fetch emails of all pooled users
+export const fetchUserEmails = async (userIds: string[]): Promise<{ email: string; fullName: string }[]> => {
+  const users = await Promise.all(
+    userIds.map(async (userId) => {
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        return {
+          email: userDoc.data().email,
+          fullName: userDoc.data().fullName,
+        };
+      }
+      return null;
+    })
+  );
+  return users.filter(Boolean) as { email: string; fullName: string }[];
 };
 
 export const setPickupTime = async (requestId: string, pickupTime: string): Promise<void> => {

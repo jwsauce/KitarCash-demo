@@ -1,14 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EWasteItem } from '../types';
 import { mockRecyclingCenters } from '../services/mockData';
 import MapComponent from './MapComponent';
-import { savePickupRequest, countNearbyRequests, runPoolingAlgorithm } from '../services/firestoreService';
+import { savePickupRequest, countNearbyRequests, runPoolingAlgorithm, fetchUserEmails } from '../services/firestoreService';
 import { useAuth } from '../context/AuthContext';
+import { sendPickupConfirmation } from '../services/emailService';
 
 interface PickupSchedulerProps {
   identifiedItem: EWasteItem | null;
   initialOption?: 'manual' | 'pickup' | null;
 }
+
+const getDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initialOption = null }) => {
   const { user } = useAuth();
@@ -16,8 +29,16 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [poolStatus, setPoolStatus] = useState<'idle' | 'waiting' | 'pooled'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  console.log("Current poolStatus:", poolStatus);
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition((position) => {
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+    });
+  }, []);
 
   const handleSchedulePickup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +49,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        console.log("Got location:", position.coords);
         const { latitude: lat, longitude: lng } = position.coords;
 
         try {
@@ -48,8 +68,32 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           console.log("Nearby count:", nearbyCount);
 
           if (nearbyCount >= 5) {
-            const pooledIds = await runPoolingAlgorithm(lat, lng);
+            const { pooledIds, userIds } = await runPoolingAlgorithm(lat, lng);
             console.log("Pooled request IDs:", pooledIds);
+            console.log("User IDs:", userIds);
+
+            // Only send emails if 5 users successfully pooled
+            if (pooledIds.length >= 5) {
+              const pooledUsers = await fetchUserEmails(userIds);
+              console.log("Pooled users:", pooledUsers);
+              console.log("Service ID:", import.meta.env.VITE_EMAILJS_SERVICE_ID);
+              console.log("Template ID:", import.meta.env.VITE_EMAILJS_TEMPLATE_ID);
+              console.log("Public Key:", import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
+              await Promise.all(
+                pooledUsers.map((pooledUser) =>
+                  sendPickupConfirmation(
+                    pooledUser.email,
+                    pooledUser.fullName,
+                    (form.item as any).value,
+                    (form.address as any).value,
+                    new Date().toISOString(),
+                    'To be assigned'
+                  )
+                )
+              );
+              console.log(`Confirmation emails sent to ${pooledUsers.length} users!`);
+            }
+
             setPoolStatus('pooled');
           } else {
             setPoolStatus('waiting');
@@ -106,7 +150,11 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
             <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
               {mockRecyclingCenters.map(center => (
                 <div key={center.id} className="bg-gray-100 p-4 rounded-lg">
-                  <h4 className="font-semibold">{center.name} - {center.distance}km away</h4>
+                  <h4 className="font-semibold">
+                    {center.name} - {userLocation
+                      ? getDistanceKm(userLocation.lat, userLocation.lng, center.lat, center.lng).toFixed(1)
+                      : center.distance}km away
+                  </h4>
                   <p className="text-sm text-gray-600">{center.address}</p>
                   <p className="text-xs mt-1">Hours: {center.operatingHours} | Contact: {center.contact}</p>
                 </div>
