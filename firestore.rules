@@ -1,0 +1,54 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── USERS COLLECTION ──────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Allow create WITH walletBalance only if value is 0
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.walletBalance == 0;
+
+      // Allow update but NEVER change walletBalance or role
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && !('walletBalance' in request.resource.data.diff(resource.data).affectedKeys())
+        && !('role' in request.resource.data.diff(resource.data).affectedKeys());
+      }
+
+    // ─── TRANSACTIONS COLLECTION ───────────────────────────────────────
+    match /transactions/{txnId} {
+
+      // A user can only read their own transactions
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      // Center staff can read any transaction (to verify QR codes)
+      allow read: if request.auth != null
+        && request.auth.token.role == 'recycling_center';
+
+      // NO client writes to transactions at all.
+      // createTransaction() and verifyAndCredit() Cloud Functions handle all writes.
+      allow write: if false;
+    }
+
+    // ─── RECYCLING CENTERS COLLECTION ─────────────────────────────────
+    match /recyclingCenters/{centerId} {
+
+      // Any authenticated user can read center info (needed for map)
+      allow read: if request.auth != null;
+
+      // Only admin can write (you'll manage this manually for the demo)
+      allow write: if false;
+    }
+
+    // ─── PICKUP REQUESTS COLLECTION (existing) ─────────────────────────
+    match /pickupRequests/{requestId} {
+      allow read, write: if request.auth != null;
+    }
+
+  }
+}
