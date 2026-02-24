@@ -1,0 +1,219 @@
+# KitarCash Code Review — Bugs & Issues Found
+
+Full review of the codebase covering all components, services, pages, cloud functions, and Firestore rules.
+
+---
+
+## 🔴 Critical Bugs
+
+### 1. [analyzeImage](file:///c:/Users/User/Desktop/KitarCash-demo/services/geminiService.ts#12-89) silently returns `undefined` on failure
+**File:** [geminiService.ts](file:///c:/Users/User/Desktop/KitarCash-demo/services/geminiService.ts#L79-L88)
+
+The function only returns inside the `if (jsonText)` block. If `jsonText` is falsy (empty/null), the function **implicitly returns `undefined`**, but the return type promises [EWasteItem](file:///c:/Users/User/Desktop/KitarCash-demo/types.ts#7-19). This crashes downstream code in [Chatbot.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/Chatbot.tsx) that tries to read `.itemName`, `.category`, etc.
+
+```typescript
+// Line 79–88: No return or throw in the else branch
+if (jsonText) {
+    const eWasteData: EWasteItem = JSON.parse(jsonText);
+    return eWasteData; 
+}
+// ❌ Falls off the end — returns undefined, violating the Promise<EWasteItem> type
+```
+
+**Fix:** Add `throw new Error('No response from Gemini API')` after the `if` block.
+
+---
+
+### 2. [MapComponent](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx#34-127) prop mismatch — `centers` prop passed but never received
+**File:** [PickupScheduler.tsx:289](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#L289) ↔ [MapComponent.tsx:16-18](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx#L16-L18)
+
+[PickupScheduler](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#138-444) passes `<MapComponent centers={...} height="250px" />`, but [MapComponent](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx#34-127) defines its props as `{ onDataLoaded?: ... }` — it **does not accept** `centers` or `height`. The `centers` prop is silently ignored, and the `height` is hardcoded to `300px` inside the component.
+
+```tsx
+// PickupScheduler.tsx line 289
+<MapComponent centers={mockRecyclingCenters} height="250px" />
+
+// MapComponent.tsx — actual interface
+interface MapComponentProps {
+  onDataLoaded?: (data: any[]) => void;  // ❌ No 'centers' or 'height'
+}
+```
+
+**Impact:** The mock recycling center data is never used by the map; it fetches from Firestore instead. The map height cannot be overridden.
+
+---
+
+### 3. [handleCancelPickup](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#247-260) resets `currentRequestId` but not `poolStatus`
+**File:** [PickupScheduler.tsx:247-259](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#L247-L259)
+
+After cancelling, the code sets `setCurrentRequestId(null)` on line 252, but **never sets `setPoolStatus('cancelled')`**. It relies on the Firestore `onSnapshot` listener for that. However, since `currentRequestId` is now `null`, the listener **unsubscribes immediately** (line 160: `if (!currentRequestId) return;`). This creates a race:
+- If the snapshot fires before the state updates → status changes to `cancelled` ✅
+- If the state clears first → the listener is gone, and the UI **stays stuck** on `waiting`/`pooled` forever ❌
+
+```typescript
+// Line 252: clears the ID...
+setCurrentRequestId(null);
+// ...which kills the snapshot listener on line 160
+// But poolStatus is never explicitly set to 'cancelled'
+```
+
+**Fix:** Add `setPoolStatus('cancelled')` inside [handleCancelPickup](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#247-260) before or after clearing the request ID.
+
+---
+
+### 4. `setUserRole` Cloud Function has NO authentication guard
+**File:** [functions/src/index.ts:16-49](file:///c:/Users/User/Desktop/KitarCash-demo/functions/src/index.ts#L16-L49)
+
+The admin check is **commented out** (lines 19-21). Any authenticated user can call this function and give themselves the `admin`, `recycling_center`, or `driver` role. This is a **privilege escalation vulnerability**.
+
+```typescript
+// Lines 19-21: COMMENTED OUT
+// if (request.auth?.token.role !== 'admin') {
+//   throw new HttpsError('permission-denied', 'Only admins can set roles.');
+// }
+```
+
+---
+
+### 5. Firestore rules for `pickupRequests` are too permissive
+**File:** [firestore.rules:49-51](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules#L49-L51)
+
+```
+match /pickupRequests/{requestId} {
+  allow read, write: if request.auth != null;
+}
+```
+
+Any authenticated user can **read, modify, or delete** any other user's pickup request. A malicious user could:
+- Cancel other users' requests
+- Change status to `completed` to trigger driver payouts
+- Read all users' addresses and phone numbers
+
+---
+
+### 6. Firestore rules block driver reads of user data
+**File:** [firestore.rules:7-8](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules#L7-L8)
+
+```
+match /users/{uid} {
+  allow read: if request.auth != null && request.auth.uid == uid;
+```
+
+Only the user themselves can read their own doc. But [DriverDashboard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/pages/DriverDashboard.tsx) (line 28) does `getDoc(doc(db, "users", data.userId))` to fetch customer names/phones. This **will always be denied by Firestore rules** for drivers, causing the catch block to fire and showing "Customer" / "N/A" for every task.
+
+---
+
+## 🟡 Logic Bugs
+
+### 7. [Chatbot.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/Chatbot.tsx) references undeclared variable `isUploading` before it's defined
+**File:** [Chatbot.tsx:117](file:///c:/Users/User/Desktop/KitarCash-demo/components/Chatbot.tsx#L117) vs [line 277](file:///c:/Users/User/Desktop/KitarCash-demo/components/Chatbot.tsx#L277)
+
+[handleSendMessage](file:///c:/Users/User/Desktop/KitarCash-demo/components/Chatbot.tsx#115-154) (line 117) checks `isUploading`, but `isUploading` is declared on line 277 (`const isUploading = uploadProgress !== null`). Due to hoisting behavior, `isUploading` won't work like a regular `const` inside the function body — this actually works at runtime because the `const` is evaluated before the callback runs, but it's fragile. However, there's a deeper issue:
+
+`isUploading` is not reactive — it's computed once per render. If `uploadProgress` changes between when the user clicks send and when the handler executes, the check might be stale.
+
+---
+
+### 8. [handleSendManually](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#261-282) creates a transaction but `identifiedItem` check leads to wrong flow
+**File:** [PickupScheduler.tsx:261-281](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#L261-L281)
+
+If `identifiedItem` is `null`, the function just sets `option` to `'manual'` (line 263), which shows the recycling center list. But the button text says **"Send Manually"**, which implies the item should be submitted. The user sees recycling centers with no indication that their item wasn't processed.
+
+Also, on error (line 279), it sets `option` to `'manual'` without any error message to the user — the transaction creation silently fails and shows the recycling center list.
+
+---
+
+### 9. Duplicate [getDistanceKm](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#5-16) function
+**Files:** [PickupScheduler.tsx:23](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#L23), [firestoreService.ts:5](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#L5), [MapComponent.tsx:23](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx#L23)
+
+The Haversine formula is copy-pasted in **3 different files**. Not a bug per se, but a maintenance risk — if one is fixed, the others won't be.
+
+---
+
+### 10. Misleading comment for `setDefaultRole` function
+**File:** [functions/src/index.ts:53-54](file:///c:/Users/User/Desktop/KitarCash-demo/functions/src/index.ts#L53-L54)
+
+The comment says `FUNCTION: verifyAndCredit` but the exported name is `setDefaultRole`. Copy-paste error:
+
+```typescript
+// ─── FUNCTION: verifyAndCredit ───  ← Wrong label
+export const setDefaultRole = onCall(async (request) => {
+```
+
+---
+
+### 11. `createTransaction` role check may block new users
+**File:** [functions/src/index.ts:80-82](file:///c:/Users/User/Desktop/KitarCash-demo/functions/src/index.ts#L80-L82)
+
+```typescript
+if (request.auth.token.role !== 'user') {
+  throw new HttpsError('permission-denied', ...);
+}
+```
+
+Custom claims are set in `setUserRole` or `setDefaultRole` Cloud Functions, but neither is called automatically during signup. [AuthContext](file:///c:/Users/User/Desktop/KitarCash-demo/context/AuthContext.tsx#22-33) creates the Firestore doc with `role: 'user'`, but **never sets the custom claim on the Auth token**. So `request.auth.token.role` will be `undefined` for new users, causing `createTransaction` to **always fail** with "Only regular users can create transactions."
+
+---
+
+### 12. Google Sign-in button does nothing
+**File:** [AuthCard.tsx:156-162](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx#L156-L162)
+
+The "Sign in with Google" button has no `onClick` handler — it's purely decorative. A user clicking it will see nothing happen.
+
+---
+
+### 13. Geolocation error not shown in [PickupScheduler](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#138-444) init
+**File:** [PickupScheduler.tsx:149-156](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#L149-L156)
+
+The initial `useEffect` to get the user's location has no error callback. If the user denies permission, `userLocation` stays `null` permanently, but the distances in the recycling center list silently fall back to the hardcoded `center.distance` with no indication the live distance failed.
+
+---
+
+### 14. Unused `navigate` import in [AuthCard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx)
+**File:** [AuthCard.tsx:2,20](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx#L2)
+
+`useNavigate` is imported and called (`const navigate = useNavigate()`) but `navigate` is never used anywhere in the component. Dead code.
+
+---
+
+## 🟠 Data Safety Concerns
+
+### 15. Firestore read rule for transactions may leak data to center staff
+**File:** [firestore.rules:30-31](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules#L30-L31)
+
+```
+allow read: if request.auth != null
+  && request.auth.token.role == 'recycling_center';
+```
+
+Any recycling center staff can read **all** transactions from **all** centers — not just their own. There's no check for `resource.data.centerId == request.auth.token.centerId`.
+
+---
+
+### 16. [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) file is checked into the repository
+**File:** [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) (544 bytes)
+
+The [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) file likely contains API keys (Firebase, Gemini, EmailJS). It's present in the project root and may be committed to Git if [.gitignore](file:///c:/Users/User/Desktop/KitarCash-demo/.gitignore) doesn't exclude it properly.
+
+---
+
+## Summary Table
+
+| # | Severity | File | Issue |
+|---|----------|------|-------|
+| 1 | 🔴 Critical | [geminiService.ts](file:///c:/Users/User/Desktop/KitarCash-demo/services/geminiService.ts) | [analyzeImage](file:///c:/Users/User/Desktop/KitarCash-demo/services/geminiService.ts#12-89) returns `undefined` on empty response |
+| 2 | 🔴 Critical | [PickupScheduler](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#138-444) ↔ [MapComponent](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx#34-127) | Props mismatch (`centers`/`height` ignored) |
+| 3 | 🔴 Critical | [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx) | Cancel race condition — UI can get stuck |
+| 4 | 🔴 Critical | Cloud Functions | `setUserRole` has no auth guard (commented out) |
+| 5 | 🔴 Critical | [firestore.rules](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules) | `pickupRequests` open to any authenticated user |
+| 6 | 🔴 Critical | [firestore.rules](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules) | Drivers can't read user docs (names/phones always fail) |
+| 7 | 🟡 Logic | [Chatbot.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/Chatbot.tsx) | `isUploading` referenced before declaration |
+| 8 | 🟡 Logic | [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx) | Send manually silently fails on error |
+| 9 | 🟡 Logic | Multiple files | [getDistanceKm](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#5-16) duplicated 3× |
+| 10 | 🟡 Logic | Cloud Functions | Wrong comment label on `setDefaultRole` |
+| 11 | 🟡 Logic | Cloud Functions | `createTransaction` blocks new users (no custom claims set) |
+| 12 | 🟡 Logic | [AuthCard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx) | Google Sign-in button is non-functional |
+| 13 | 🟡 Logic | [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx) | Geolocation error silently ignored |
+| 14 | 🟡 Logic | [AuthCard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx) | Unused `navigate` import |
+| 15 | 🟠 Security | [firestore.rules](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules) | Center staff can read all transactions |
+| 16 | 🟠 Security | [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) | May be committed to version control |

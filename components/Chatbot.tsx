@@ -26,6 +26,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+  const isUploading = uploadProgress !== null;
 
   // Confirmation modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -54,11 +55,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
     }
 
     if (label === 'Send manually') {
-  // Store the identified item and show confirmation modal before creating transaction
-  pendingItemRef.current = item ?? null;
-  setShowConfirmModal(true);
-  return;
-}
+      // Store the identified item and show confirmation modal before creating transaction
+      pendingItemRef.current = item ?? null;
+      setShowConfirmModal(true);
+      return;
+    }
 
     // For other buttons, trigger text analysis as normal
     setIsLoading(true);
@@ -274,8 +275,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
     );
   };
 
-  const isUploading = uploadProgress !== null;
-
   return (
     <>
       <ConfirmationModal
@@ -287,80 +286,80 @@ const Chatbot: React.FC<ChatbotProps> = ({ setIdentifiedItem, setCurrentView, se
         onConfirm={handleConfirmManualSend}
         onCancel={handleCancelManualSend}
       />
-    <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg overflow-hidden flex flex-col h-[70vh]">
-      <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex items-end gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.sender === 'ai' && <div className="w-8 h-8 rounded-full bg-green-500 flex-shrink-0"></div>}
-            <div className={`max-w-md p-3 rounded-2xl ${msg.sender === 'user' ? 'bg-green-500 text-white rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
-              {renderMessageContent(msg)}
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex items-end gap-3 justify-start">
-            <div className="w-8 h-8 rounded-full bg-green-500 flex-shrink-0"></div>
-            <div className="bg-gray-200 text-gray-800 p-3 rounded-2xl rounded-bl-none">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse delay-150"></div>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse delay-300"></div>
-                <span className="text-sm">Analyzing...</span>
+      <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg overflow-hidden flex flex-col h-[70vh]">
+        <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+          {messages.map((msg) => (
+            <div key={msg.id} className={`flex items-end gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {msg.sender === 'ai' && <div className="w-8 h-8 rounded-full bg-green-500 flex-shrink-0"></div>}
+              <div className={`max-w-md p-3 rounded-2xl ${msg.sender === 'user' ? 'bg-green-500 text-white rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
+                {renderMessageContent(msg)}
               </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {(isUploading || uploadError) && (
-        <div className="px-4 pb-2">
-          {isUploading && (
-            <>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
+          ))}
+          {isLoading && (
+            <div className="flex items-end gap-3 justify-start">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex-shrink-0"></div>
+              <div className="bg-gray-200 text-gray-800 p-3 rounded-2xl rounded-bl-none">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse delay-150"></div>
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse delay-300"></div>
+                  <span className="text-sm">Analyzing...</span>
+                </div>
               </div>
-              <p className="text-xs text-center text-gray-600 mt-1">Uploading... {Math.round(uploadProgress!)}%</p>
-            </>
-          )}
-          {uploadError && (
-            <p className="text-xs text-center text-red-600 mt-1">{uploadError}</p>
+            </div>
           )}
         </div>
-      )}
 
-      <div className="p-4 border-t border-gray-200 bg-gray-50/70">
-        <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            ref={fileInputRef}
-            onChange={handleImageUpload}
-            className="hidden"
-            disabled={isUploading}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="p-3 rounded-full bg-gray-200 text-gray-600 hover:bg-green-200 hover:text-green-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Upload image"
-            disabled={isUploading}
-          >
-            <UploadIcon className="w-6 h-6" />
-          </button>
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder={isUploading ? "Waiting for upload..." : "Type your message..."}
-            className="flex-1 bg-white text-gray-800 border border-gray-300 rounded-full py-3 px-5 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-            disabled={isUploading}
-          />
-          <button type="submit" className="p-3 rounded-full bg-green-500 hover:bg-green-600 transition-colors duration-200 disabled:bg-gray-400" aria-label="Send message" disabled={isUploading}>
-            <SendIcon className="w-6 h-6" />
-          </button>
-        </form>
+        {(isUploading || uploadError) && (
+          <div className="px-4 pb-2">
+            {isUploading && (
+              <>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
+                </div>
+                <p className="text-xs text-center text-gray-600 mt-1">Uploading... {Math.round(uploadProgress!)}%</p>
+              </>
+            )}
+            {uploadError && (
+              <p className="text-xs text-center text-red-600 mt-1">{uploadError}</p>
+            )}
+          </div>
+        )}
+
+        <div className="p-4 border-t border-gray-200 bg-gray-50/70">
+          <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              className="hidden"
+              disabled={isUploading}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-3 rounded-full bg-gray-200 text-gray-600 hover:bg-green-200 hover:text-green-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Upload image"
+              disabled={isUploading}
+            >
+              <UploadIcon className="w-6 h-6" />
+            </button>
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder={isUploading ? "Waiting for upload..." : "Type your message..."}
+              className="flex-1 bg-white text-gray-800 border border-gray-300 rounded-full py-3 px-5 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+              disabled={isUploading}
+            />
+            <button type="submit" className="p-3 rounded-full bg-green-500 hover:bg-green-600 transition-colors duration-200 disabled:bg-gray-400" aria-label="Send message" disabled={isUploading}>
+              <SendIcon className="w-6 h-6" />
+            </button>
+          </form>
+        </div>
       </div>
-    </div>
     </>
   );
 };

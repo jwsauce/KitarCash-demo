@@ -24,9 +24,9 @@ const UserDashboard: React.FC = () => {
               setPickupOption={setPickupOption}
             />
           </div>
-          {currentView === 'pickup' && (
+          <div className={currentView === 'pickup' ? 'block' : 'hidden'}>
             <PickupScheduler identifiedItem={identifiedItem} initialOption={pickupOption} setCurrentView={setCurrentView} />
-          )}
+          </div>
           {currentView === 'wallet' && <Wallet />}
         </main>
       </div>
