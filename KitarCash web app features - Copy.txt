@@ -1,0 +1,172 @@
+> The website must:
+>
+> * Use a modern UI (clean layout, rounded cards, soft shadows, eco-green color palette)
+> * Be responsive (desktop + mobile)
+> * Use Flutter for frontend
+> * Use Firebase for backend database and authentication
+> * Include AI integration-ready structure (for Gemini Vision / image analysis)
+>
+> ---
+>
+> # 🌱 Website Name: KitarCash
+>
+> Tagline: “Recycle Smart. Earn Green.”
+>
+> ---
+>
+> # 🔹 FEATURE 1: Snap & Identify AI Chatbox
+>
+> Create an AI chatbot interface with:
+>
+> * Image upload button (“Snap your E-Waste”)
+> * Text input field
+> * Chat-style UI
+>
+> Functionality:
+>
+> * User uploads an image of e-waste
+> * System identifies:
+>
+>   * Item name (e.g., iPhone 11, Laptop, CRT Monitor, etc.)
+>   * Category (phone, battery, appliance, etc.)
+>   * Estimated recycling value (based on predefined mock pricing logic)
+> * Display:
+>
+>   * Item name
+>   * Estimated value range (RM)
+>   * Environmental impact note
+>
+> Include mock AI function:
+> `analyzeImage(image) -> { itemName, category, hazardFlag, estimatedPrice }`
+>
+> ---
+>
+> # 🔹 FEATURE 2: Data Cleaning & Hazard Detection
+>
+> After identifying device:
+>
+> * If phone/laptop:
+>
+>   * Show guided checklist:
+>
+>     * Backup data
+>     * Factory reset
+>     * Remove SIM/SD
+>     * Sign out from Apple ID / Google
+>
+> * Include step-by-step expandable UI
+>
+> * If hazardous item detected (e.g., leaking lead-acid battery):
+>
+>   * Show red warning banner:
+>
+>     * ⚠️ Hazardous Item Detected
+>     * Disposal precautions
+>     * Do NOT store indoors
+>
+> ---
+>
+> # 🔹 FEATURE 3: Community Pooling & Smart Pickup
+>
+> Create:
+>
+> 1. Map section (use Google Maps API placeholder)
+>
+>    * Display nearby licensed recycling centers
+>    * Mock data of centers
+> 2. Two options:
+>
+>    * “Send Manually”
+>    * “Schedule Pickup”
+>
+> If “Send Manually”:
+> - Show nearest centers with:
+> - Distance
+> - Operating hours
+> - Contact
+>
+> If “Schedule Pickup”:
+> - User registers:
+> - Address
+> - Item
+> - Quantity
+> - Save to database
+>
+> Implement pooling logic:
+>
+> * If 5+ users within 2km radius register pickup:
+>
+>   * Show animated badge:
+>     “🎉 Community Goal Reached – FREE Pickup Activated”
+>   * Display:
+>
+>     * Pickup date
+>     * Location
+>
+> Include mock backend function:
+> `checkCommunityPooling(location) -> triggers badge when >=5`
+>
+> ---
+>
+> # 🔹 FEATURE 4: Digital Wallet + QR Tracking
+>
+> Create a wallet dashboard:
+>
+> * Wallet balance (RM)
+> * Transaction history
+> * Status tracker (Shopee-style timeline):
+>
+>   * Request Submitted
+>   * Pickup Scheduled
+>   * Item Collected
+>   * Arrived at Recycling Center
+>   * Verified
+>   * Cash Credited
+>
+> Add:
+>
+> * Generate QR code for each recycling request
+> * Mock QR code generator function
+> * When recycling center “scans” QR:
+>
+>   * Update status
+>   * Add balance to wallet
+>
+> ---
+>
+> # 🎨 DESIGN REQUIREMENTS
+>
+> * Eco green gradient theme
+> * Soft glassmorphism cards
+> * Smooth animations (Framer Motion or CSS animations)
+> * Modern dashboard layout
+> * Clean typography (Inter or Poppins)
+> * Minimal but futuristic look
+>
+> ---
+>
+> # 🧠 AI Architecture
+>
+> Prepare structure for:
+>
+> * Gemini Vision API integration for image recognition
+> * AI chatbot response generation
+> * Future ML price estimation model
+>
+> ---
+>
+> # 📦 Deliverables
+>
+> Provide:
+>
+> * Complete frontend code
+> * Mock backend structure
+> * Firebase schema
+> * Folder structure
+> * Comments explaining each section
+>
+> Make the code production-ready but use mock AI responses for now.
+>
+> Ensure everything is modular and scalable.
+>
+> Make the website responsive, and return everything in one HTML file with embedded CSS and JavaScript
