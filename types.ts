@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   fullName: string;
@@ -19,7 +18,7 @@ export interface EWasteItem {
 }
 
 export interface ChatMessage {
-  id:string;
+  id: string;
   sender: 'user' | 'ai';
   type: 'text' | 'image' | 'analysis';
   content: string | EWasteItem;
@@ -65,9 +64,12 @@ export interface PickupRequest {
   addOn: string;
   lat: number;
   lng: number;
-  status: 'waiting' | 'pooled' | 'assigned' | 'completed';
+  status: 'waiting' | 'pooled' | 'assigned' | 'completed' | 'cancelled';
   createdAt: string;
-  poolId?: string;  
-  pooledAt?: string; 
+  poolId?: string;
+  pooledAt?: string;
   pickupTime?: string;
+  driverId?: string;
+  completedAt?: string;
+  cancelledAt?: string;
 }
