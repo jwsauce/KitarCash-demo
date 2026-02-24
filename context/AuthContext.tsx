@@ -26,8 +26,13 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: (email: string, pass: string) => Promise<any>;
+<<<<<<< HEAD
+  // UPDATED: signup now only takes 3 parameters (no more dynamic role from UI)
+  signup: (email: string, pass: string, fullName: string) => Promise<any>;
+=======
   // Updated: signup now accepts a dynamic 'role' parameter
   signup: (email: string, pass: string, fullName: string, role: string) => Promise<any>;
+>>>>>>> origin/main
   logout: () => Promise<void>;
 }
 
@@ -51,7 +56,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   /**
    * Helper: Synchronizes Firebase Auth state with Firestore user profiles.
+<<<<<<< HEAD
+   * This is key for Admin changes: if an admin changes a role in Firestore, 
+   * this function detects it and updates the app state.
+=======
    * Ensures that manual database changes (like role upgrades) reflect immediately.
+>>>>>>> origin/main
    */
   const applyUserSession = async (firebaseUser: FirebaseUser, shouldRedirect = false) => {
     try {
@@ -59,9 +69,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const userSnap = await getDoc(userDocRef);
       const userData = userSnap.data();
 
+<<<<<<< HEAD
+      // Retrieve role from Firestore first, fallback to 'user'
+      const userRole = userData?.role || 'user';
+=======
       // Retrieve role from Firestore first, fallback to Token Claims or default 'user'
       const tokenResult = await firebaseUser.getIdTokenResult(true);
       const userRole = userData?.role || (tokenResult.claims.role as string) || 'user';
+>>>>>>> origin/main
       const userCenterId = userData?.centerId || null;
 
       setUser({
@@ -100,7 +115,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   /**
+<<<<<<< HEAD
+   * Login: Authenticates existing users and routes them based on their Firestore role
+=======
    * Login: Authenticates existing users and triggers role-based routing
+>>>>>>> origin/main
    */
   const login = async (email: string, pass: string): Promise<any> => {
     setLoading(true);
@@ -118,10 +137,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   /**
+<<<<<<< HEAD
+   * Signup: Logic updated to force all new accounts to the 'user' role.
+   * Admin must manually change the role in Firestore to 'driver' or 'recycling_center'.
+   */
+  const signup = async (email: string, pass: string, fullName: string): Promise<any> => {
+=======
    * Signup: Creates a new user in Auth and initializes their profile in Firestore.
    * Now dynamically assigns the 'role' selected in the AuthCard.
    */
   const signup = async (email: string, pass: string, fullName: string, selectedRole: string): Promise<any> => {
+>>>>>>> origin/main
     setLoading(true);
     setError(null);
     try {
@@ -131,11 +157,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // 2. Set the display name in the Auth profile
       await updateProfile(credential.user, { displayName: fullName });
 
+<<<<<<< HEAD
+      // 3. Create the user document in Firestore. 
+      // ROLE IS HARDCODED TO 'user' FOR SECURITY.
+=======
       // 3. Create the user document in Firestore with the assigned role
+>>>>>>> origin/main
       await setDoc(doc(db, 'users', credential.user.uid), {
         uid: credential.user.uid,
         email: credential.user.email,
         fullName: fullName,
+<<<<<<< HEAD
+        role: 'user', // <--- Default role assigned here
+        walletBalance: 0,
+        centerId: null,
+        isApproved: false, // Useful flag for admin dashboard
+        createdAt: serverTimestamp(),
+      });
+
+      // 4. Update local state
+      setUser({ id: credential.user.uid, email: credential.user.email!, displayName: fullName });
+      setRole('user');
+      
+      // Navigate all new signups to the standard user dashboard
+      navigate('/dashboard', { replace: true });
+=======
         role: selectedRole, // Dynamically assigned: 'user' or 'driver'
         walletBalance: 0,
         centerId: null,
@@ -148,6 +194,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       const destination = ROLE_ROUTES[selectedRole] || '/dashboard';
       navigate(destination, { replace: true });
+>>>>>>> origin/main
       
       return credential;
     } catch (err: any) {
