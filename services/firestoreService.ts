@@ -85,3 +85,10 @@ export const setPickupTime = async (requestId: string, pickupTime: string): Prom
     status: 'assigned',
   });
 };
+
+export const cancelPickupRequest = async (requestId: string): Promise<void> => {
+  await updateDoc(doc(db, "pickupRequests", requestId), {
+    status: 'cancelled',
+    cancelledAt: new Date().toISOString(),
+  });
+};

@@ -1,53 +1,38 @@
 import { useEffect, useState } from "react";
 import { collection, query, where, doc, updateDoc, getDoc, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { useAuth } from "../context/AuthContext"; // Import useAuth for logout functionality
+import { useAuth } from "../context/AuthContext";
 
 export default function DriverDashboard() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { logout, user } = useAuth(); // Destructure logout function and current user data
+  const { logout, user } = useAuth();
 
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    /**
-     * REAL-TIME LISTENER:
-     * Monitors the 'pickupRequests' collection for any task that is either:
-     * 1. 'waiting' (Available for any driver to grab)
-     * 2. 'assigned' (Already claimed by a driver)
-     */
     const q = query(
       collection(db, "pickupRequests"),
-      where("status", "in", ["waiting", "assigned"])
+      where("status", "in", ["waiting", "pooled", "assigned"])
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const taskList = await Promise.all(snapshot.docs.map(async (taskDoc) => {
         const data = taskDoc.data();
-        
-        /**
-         * FILTER LOGIC:
-         * If a task is assigned but NOT to the currently logged-in driver, hide it.
-         */
+
         if (data.status === "assigned" && data.driverId !== auth.currentUser?.uid) {
           return null;
         }
 
-        /**
-         * FETCH CUSTOMER INFO:
-         * Cross-reference the 'userId' from the task with the 'users' collection 
-         * to display the customer's real name and phone number.
-         */
         try {
           const userSnap = await getDoc(doc(db, "users", data.userId));
           const userData = userSnap.exists() ? userSnap.data() : {};
-          
-          return { 
-            id: taskDoc.id, 
-            ...data, 
-            userName: userData.displayName || userData.fullName || "KitarCash Customer", 
-            userPhone: userData.phone || "No Phone Provided" 
+
+          return {
+            id: taskDoc.id,
+            ...data,
+            userName: userData.displayName || userData.fullName || "KitarCash Customer",
+            userPhone: userData.phone || "No Phone Provided"
           };
         } catch (err) {
           console.error("Error fetching customer details:", err);
@@ -55,7 +40,6 @@ export default function DriverDashboard() {
         }
       }));
 
-      // Remove null entries and update state
       setTasks(taskList.filter(t => t !== null));
       setLoading(false);
     }, (error) => {
@@ -63,18 +47,12 @@ export default function DriverDashboard() {
       setLoading(false);
     });
 
-    // Cleanup listener on unmount
     return () => unsubscribe();
   }, []);
 
-  /**
-   * ACTION: ACCEPT TASK
-   * Transitions a task from 'waiting' to 'assigned' and links it to the current driver.
-   */
   const handleAcceptTask = async (id: string) => {
     try {
-      const taskRef = doc(db, "pickupRequests", id);
-      await updateDoc(taskRef, {
+      await updateDoc(doc(db, "pickupRequests", id), {
         driverId: auth.currentUser?.uid,
         status: "assigned"
       });
@@ -85,14 +63,13 @@ export default function DriverDashboard() {
     }
   };
 
-  /**
-   * ACTION: MARK COLLECTED
-   * Finalizes the pickup and removes it from the active dashboard list.
-   */
   const handleCollected = async (id: string) => {
     if (!window.confirm("Confirm that you have collected the items?")) return;
     try {
-      await updateDoc(doc(db, "pickupRequests", id), { status: "collected" });
+      await updateDoc(doc(db, "pickupRequests", id), {
+        status: "completed",
+        completedAt: new Date().toISOString(),
+      });
       alert("✅ Pickup successfully completed!");
     } catch (err) {
       console.error("Complete error:", err);
@@ -107,8 +84,7 @@ export default function DriverDashboard() {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      
-      {/* HEADER SECTION with Logout */}
+
       <div className="flex justify-between items-center mb-8 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-2xl font-bold text-blue-900 leading-tight">Driver Marketplace</h1>
@@ -116,15 +92,14 @@ export default function DriverDashboard() {
             Logged in as: <span className="font-semibold text-blue-600">{user?.displayName || "Driver"}</span>
           </p>
         </div>
-        <button 
-          onClick={() => { if(window.confirm("Logout from Driver Board?")) logout(); }}
+        <button
+          onClick={() => { if (window.confirm("Logout from Driver Board?")) logout(); }}
           className="px-4 py-2 bg-red-50 text-red-600 text-sm font-bold rounded-xl hover:bg-red-100 transition-colors border border-red-100"
         >
           Logout
         </button>
       </div>
-      
-      {/* TASK LIST SECTION */}
+
       <div className="space-y-4">
         {tasks.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-200">
@@ -132,21 +107,29 @@ export default function DriverDashboard() {
           </div>
         ) : (
           tasks.map(task => (
-            <div 
-              key={task.id} 
+            <div
+              key={task.id}
               className={`p-5 rounded-2xl shadow-sm border transition-all ${
-                task.status === 'assigned' ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100' : 'bg-white border-gray-200'
+                task.status === 'assigned'
+                  ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100'
+                  : task.status === 'pooled'
+                  ? 'bg-green-50 border-green-200 ring-1 ring-green-100'
+                  : 'bg-white border-gray-200'
               }`}
             >
               <div className="flex justify-between items-start mb-3">
                 <h2 className="text-lg font-bold text-gray-800">{task.userName}</h2>
                 <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
-                  task.status === 'assigned' ? 'bg-blue-600 text-white' : 'bg-green-100 text-green-700'
+                  task.status === 'assigned'
+                    ? 'bg-blue-600 text-white'
+                    : task.status === 'pooled'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-100 text-gray-700'
                 }`}>
-                  {task.status === 'assigned' ? 'Your Active Task' : 'Open Request'}
+                  {task.status === 'assigned' ? 'Your Active Task' : task.status === 'pooled' ? 'Pool Confirmed' : 'Open Request'}
                 </span>
               </div>
-              
+
               <div className="space-y-1 mb-4">
                 <p className="text-sm text-gray-600 flex items-center">
                   <span className="mr-2">📞</span> {task.userPhone}
@@ -158,29 +141,27 @@ export default function DriverDashboard() {
                   📦 Item: {task.item}
                 </div>
               </div>
-              
+
               <div className="flex gap-3">
-                {task.status === 'waiting' ? (
-                  // Button for Marketplace browsing
-                  <button 
-                    onClick={() => handleAcceptTask(task.id)} 
+                {task.status === 'waiting' || task.status === 'pooled' ? (
+                  <button
+                    onClick={() => handleAcceptTask(task.id)}
                     className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-100 active:scale-[0.98] transition-transform"
                   >
                     Accept Task
                   </button>
                 ) : (
-                  // Buttons for Active Tasks
                   <>
-                    <a 
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${task.lat},${task.lng}`} 
-                      target="_blank" 
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${task.lat},${task.lng}`}
+                      target="_blank"
                       rel="noreferrer"
                       className="flex-1 bg-white border border-gray-300 text-center py-3 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       Navigate
                     </a>
-                    <button 
-                      onClick={() => handleCollected(task.id)} 
+                    <button
+                      onClick={() => handleCollected(task.id)}
                       className="flex-[2] bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 shadow-md shadow-green-100 active:scale-[0.98] transition-transform"
                     >
                       Mark Collected
