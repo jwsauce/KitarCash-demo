@@ -105,8 +105,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setError(null);
     try {
       const credential = await signInWithEmailAndPassword(auth, email, pass);
-      await applyUserSession(credential.user, true); 
-      return credential; // Fixed: Now returns the credential object
+      await applyUserSession(credential.user, true); // Redirect after login
     } catch (err: any) {
       if (err.code === 'auth/invalid-credential') {
         setError('Email or password is incorrect');
