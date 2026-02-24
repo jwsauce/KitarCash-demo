@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { onSnapshot, doc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { EWasteItem } from '../types';
 import { mockRecyclingCenters } from '../services/mockData';
 import MapComponent from './MapComponent';
-import { savePickupRequest, countNearbyRequests, runPoolingAlgorithm, fetchUserEmails } from '../services/firestoreService';
+import { savePickupRequest, countNearbyRequests, runPoolingAlgorithm, fetchUserEmails, cancelPickupRequest } from '../services/firestoreService';
 import { useAuth } from '../context/AuthContext';
 import { sendPickupConfirmation } from '../services/emailService';
 
@@ -28,10 +30,13 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
   const { user } = useAuth();
   const [option, setOption] = useState<'manual' | 'pickup' | null>(initialOption);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [poolStatus, setPoolStatus] = useState<'idle' | 'waiting' | 'pooled'>('idle');
+  const [poolStatus, setPoolStatus] = useState<'idle' | 'waiting' | 'pooled' | 'driver_assigned' | 'completed' | 'cancelled'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
+  // Get user's live location
   useEffect(() => {
     navigator.geolocation.getCurrentPosition((position) => {
       setUserLocation({
@@ -41,9 +46,37 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
     });
   }, []);
 
+  // Real-time listener — syncs status from Firestore when driver updates it
+  useEffect(() => {
+    if (!requestId) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'pickupRequests', requestId), (snapshot) => {
+      const data = snapshot.data();
+      if (data?.status) {
+        setPoolStatus(data.status);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [requestId]);
+
   const handleDirectToCentre = (lat: number, lng: number) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     window.open(url, '_blank');
+  };
+
+  const handleCancel = async () => {
+    if (!requestId) return;
+    setIsCancelling(true);
+    try {
+      await cancelPickupRequest(requestId);
+      setPoolStatus('idle');
+      setRequestId(null);
+    } catch (err) {
+      setError('Failed to cancel request. Please try again.');
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const handleSchedulePickup = async (e: React.FormEvent) => {
@@ -58,7 +91,7 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
         const { latitude: lat, longitude: lng } = position.coords;
 
         try {
-          await savePickupRequest({
+          const newRequestId = await savePickupRequest({
             userId: user?.id || 'anonymous',
             address: (form.address as any).value,
             contactNumber: (form.contactNumber as any).value,
@@ -70,6 +103,7 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
             status: 'waiting',
             createdAt: new Date().toISOString(),
           });
+          setRequestId(newRequestId);
 
           const nearbyCount = await countNearbyRequests(lat, lng);
           console.log("Nearby total quantity:", nearbyCount);
@@ -139,6 +173,15 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
     }
   };
 
+  const statusSteps = [
+    { label: 'Submitted', key: 'waiting' },
+    { label: 'Pooled', key: 'pooled' },
+    { label: 'Driver Assigned', key: 'driver_assigned' },
+    { label: 'Completed', key: 'completed' },
+  ];
+  const stepOrder = ['waiting', 'pooled', 'driver_assigned', 'completed'];
+  const currentStepIndex = stepOrder.indexOf(poolStatus);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 flex flex-col">
@@ -205,26 +248,98 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           <div>
             <h3 className="text-xl font-bold text-green-700 mb-4">Schedule a Community Pickup</h3>
 
-            {poolStatus === 'waiting' && (
-              <div className="text-center p-6 bg-yellow-50 border border-yellow-300 rounded-lg">
-                <div className="text-5xl mb-4">⏳</div>
-                <h4 className="text-xl font-bold text-yellow-800">Request Submitted!</h4>
-                <p className="text-gray-600 mt-2">We're looking for nearby recyclers in your area.</p>
-                <p className="text-sm text-gray-500 mt-1">You'll be notified once a pickup pool is formed.</p>
+            {/* Status Dashboard */}
+            {(poolStatus === 'waiting' || poolStatus === 'pooled' || poolStatus === 'driver_assigned' || poolStatus === 'completed') && (
+              <div className="space-y-6">
+
+                {/* Progress Bar */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-600 mb-3">Pickup Status</h4>
+                  <div className="relative">
+                    <div className="absolute top-4 left-0 right-0 h-1 bg-gray-200 z-0">
+                      <div
+                        className="h-1 bg-green-500 transition-all duration-500"
+                        style={{ width: currentStepIndex >= 0 ? `${(currentStepIndex / (stepOrder.length - 1)) * 100}%` : '0%' }}
+                      />
+                    </div>
+                    <div className="relative z-10 flex justify-between">
+                      {statusSteps.map((step, index) => {
+                        const isCompleted = index <= currentStepIndex;
+                        const isActive = index === currentStepIndex;
+                        return (
+                          <div key={step.key} className="flex flex-col items-center w-1/4">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all
+                              ${isCompleted ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-300 text-gray-400'}
+                              ${isActive ? 'ring-4 ring-green-100' : ''}`}>
+                              {isCompleted ? '✓' : index + 1}
+                            </div>
+                            <span className={`mt-2 text-xs text-center leading-tight
+                              ${isActive ? 'text-green-600 font-semibold' : isCompleted ? 'text-green-500' : 'text-gray-400'}`}>
+                              {step.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Message */}
+                {poolStatus === 'waiting' && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-lg text-center">
+                    <div className="text-3xl mb-2">⏳</div>
+                    <h4 className="font-bold text-yellow-800">Looking for nearby recyclers...</h4>
+                    <p className="text-sm text-gray-500 mt-1">You'll be notified once a pool is formed.</p>
+                  </div>
+                )}
+
+                {poolStatus === 'pooled' && (
+                  <div className="p-4 bg-green-50 border border-green-300 rounded-lg text-center">
+                    <div className="text-3xl mb-2 animate-bounce">🎉</div>
+                    <h4 className="font-bold text-green-800">Community Goal Reached!</h4>
+                    <p className="text-sm text-gray-500 mt-1">Waiting for a driver to be assigned.</p>
+                  </div>
+                )}
+
+                {poolStatus === 'driver_assigned' && (
+                  <div className="p-4 bg-blue-50 border border-blue-300 rounded-lg text-center">
+                    <div className="text-3xl mb-2">🚗</div>
+                    <h4 className="font-bold text-blue-800">Driver Assigned!</h4>
+                    <p className="text-sm text-gray-500 mt-1">Your driver is on the way to collect your items.</p>
+                  </div>
+                )}
+
+                {poolStatus === 'completed' && (
+                  <div className="p-4 bg-green-50 border border-green-300 rounded-lg text-center">
+                    <div className="text-3xl mb-2">✅</div>
+                    <h4 className="font-bold text-green-800">Pickup Completed!</h4>
+                    <p className="text-sm text-gray-500 mt-1">Thank you for recycling responsibly!</p>
+                  </div>
+                )}
+
+                {/* Cancel Button — only before driver assigned */}
+                {(poolStatus === 'waiting' || poolStatus === 'pooled') && (
+                  <button
+                    onClick={handleCancel}
+                    disabled={isCancelling}
+                    className="w-full py-2 border-2 border-red-400 text-red-500 font-semibold rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {isCancelling ? 'Cancelling...' : 'Cancel Request'}
+                  </button>
+                )}
+
+                {error && <p className="text-red-500 text-sm text-center">{error}</p>}
               </div>
             )}
 
-            {poolStatus === 'pooled' && (
-              <div className="text-center p-6 bg-green-50 border border-green-300 rounded-lg">
-                <div className="text-5xl mb-4 animate-bounce">🎉</div>
-                <h4 className="text-2xl font-bold text-green-800">Community Goal Reached!</h4>
-                <p className="text-gray-800 mt-2">FREE Pickup Activated</p>
-                <p className="text-sm text-gray-500 mt-2">A driver will be assigned shortly.</p>
-              </div>
-            )}
-
-            {poolStatus === 'idle' && (
+            {/* Form */}
+            {(poolStatus === 'idle' || poolStatus === 'cancelled') && (
               <form onSubmit={handleSchedulePickup} className="space-y-4">
+                {poolStatus === 'cancelled' && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-center">
+                    <p className="text-sm text-red-600">Your previous request was cancelled. Submit a new one below.</p>
+                  </div>
+                )}
                 <div>
                   <label htmlFor="address" className="block text-sm font-medium text-gray-600">Address</label>
                   <input type="text" id="address" name="address" required

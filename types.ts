@@ -65,7 +65,7 @@ export interface PickupRequest {
   addOn: string;
   lat: number;
   lng: number;
-  status: 'waiting' | 'pooled' | 'assigned' | 'completed';
+  status: 'waiting' | 'pooled' | 'driver_assigned' | 'on_the_way' | 'completed' | 'cancelled';
   createdAt: string;
   poolId?: string;  
   pooledAt?: string; 
