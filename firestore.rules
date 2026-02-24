@@ -3,22 +3,59 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper function to check if the current user is a driver
+    function isDriver() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver';
+    }
+
     // ─── USERS COLLECTION ──────────────────────────────────────────────
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && (request.auth.uid == uid || isDriver());
+      allow create: if request.auth != null && request.auth.uid == uid && request.resource.data.walletBalance == 0;
+      allow update: if request.auth != null && request.auth.uid == uid && 
+                    !('walletBalance' in request.resource.data.diff(resource.data).affectedKeys()) && 
+                    !('role' in request.resource.data.diff(resource.data).affectedKeys());
+    }
 
-      // Allow create WITH walletBalance only if value is 0
+    // ─── PICKUP REQUESTS COLLECTION ───────────────────────────────────
+    match /pickupRequests/{requestId} {
+      
+      // Any authenticated user can read pickup requests
+      // (needed for pooling algorithm to count nearby requests)
+      allow read: if request.auth != null;
+
+      /**
+       * Crucial Fix for "Accept Task":
+       * 1. Allow any driver to update if current status is 'waiting' (Grab the task)
+       * 2. Allow assigned driver to update if status is 'assigned' (Mark as collected)
+       * 3. Allow original user to manage their own request
+       */
+      allow update: if request.auth != null && (
+        // Case 1: Driver grabbing a waiting/pooled task
+        (isDriver() && (resource.data.status == 'waiting' || resource.data.status == 'pooled')) ||
+        
+        // Case 2: Assigned driver completing their task
+        (isDriver() && resource.data.driverId == request.auth.uid) ||
+        
+        // Case 3: Original user updating/cancelling
+        (resource.data.userId == request.auth.uid) ||
+
+        // Case 4: Pooling — any user can change status from 'waiting' to 'pooled'
+        (resource.data.status == 'waiting' && request.resource.data.status == 'pooled')
+      );
+
       allow create: if request.auth != null
-        && request.auth.uid == uid
-        && request.resource.data.walletBalance == 0;
+  			&& request.resource.data.userId == request.auth.uid;
 
-      // Allow update but NEVER change walletBalance or role
-      allow update: if request.auth != null
-        && request.auth.uid == uid
-        && !('walletBalance' in request.resource.data.diff(resource.data).affectedKeys())
-        && !('role' in request.resource.data.diff(resource.data).affectedKeys());
-      }
+    }
 
+    // ─── RECYCLING CENTERS ──────────────────────────────────────────
+    match /recyclingCenters/{centerId} {
+      allow read: if request.auth != null;
+      allow write: if false; 
+    }
+    
     // ─── TRANSACTIONS COLLECTION ───────────────────────────────────────
     match /transactions/{txnId} {
 
@@ -26,7 +63,7 @@ service cloud.firestore {
       allow read: if request.auth != null
         && resource.data.userId == request.auth.uid;
 
-      // Center staff can read any transaction (to verify QR codes)
+      // Center staff can read any transaction (for QR scanning + verification history)
       allow read: if request.auth != null
         && request.auth.token.role == 'recycling_center';
 
@@ -35,20 +72,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ─── RECYCLING CENTERS COLLECTION ─────────────────────────────────
-    match /recyclingCenters/{centerId} {
-
-      // Any authenticated user can read center info (needed for map)
-      allow read: if request.auth != null;
-
-      // Only admin can write (you'll manage this manually for the demo)
-      allow write: if false;
-    }
-
-    // ─── PICKUP REQUESTS COLLECTION (existing) ─────────────────────────
-    match /pickupRequests/{requestId} {
-      allow read, write: if request.auth != null;
-    }
 
   }
 }

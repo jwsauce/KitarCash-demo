@@ -1,0 +1,186 @@
+# Issue Triage & Implementation Plan
+
+**Deadline:** Tomorrow | **Current time:** ~midnight | **Estimated work:** ~2 hours (must-fix only)
+
+---
+
+## Priority Tiers
+
+### 🔴 Tier 1 — Must-Fix Tonight (~2 hours total)
+
+These are **broken functionality** — your app won't demo properly without them.
+
+| # | Issue | Root Cause | Est. Time |
+|---|-------|-----------|-----------|
+| 9 | Driver can't accept "pooled" tasks | Firestore rules only allow update when `status == 'waiting'`, not `'pooled'` | **5 min** |
+| 10 | Phone number doesn't show for driver | Code reads `userData.phone` but the form saves as `contactNumber` on the pickup request, not on the user doc | **5 min** |
+| 7 | Driver sees un-pooled requests | Firestore query includes `'waiting'` status — should only show `'pooled'` | **5 min** |
+| 11 | Pooling algorithm doesn't work | The algorithm counts nearby requests from **multiple users** within 2km. A single user with qty ≥ 5 doesn't trigger it. The current user's own request needs to be included in the count. | **15 min** |
+| 1 | No confirmation modal on "Send Manually" in pickup page | [handleSendManually](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#258-280) immediately creates transaction — no modal | **15 min** |
+| 6 | Pickup status lost when navigating away | [PickupScheduler](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#125-443) unmounts when switching tabs, losing `currentRequestId` state. Need to persist the request ID and reload status from Firestore. | **45 min** |
+
+---
+
+### 🟡 Tier 2 — Should-Fix If Time (~1.5 hours)
+
+These improve UX but the app is **demoable** without them.
+
+| # | Issue | What's Needed | Est. Time |
+|---|-------|--------------|-----------|
+| 3 | Can't cancel "awaiting verification" transactions | New Cloud Function `cancelTransaction` + cancel button in Wallet UI | **30 min** |
+| 4 | No full transaction details for user | Expand wallet transaction cards to show center name, transaction ID, weight, etc. | **20 min** |
+| 5 | No transaction history for center | Add a "Recent Verifications" section to Center Dashboard with a Firestore query | **30 min** |
+
+---
+
+### ⚪ Tier 3 — Skip For Deadline
+
+| # | Issue | Why Skip |
+|---|-------|---------|
+| 2 | Recycling center data mismatch | The list is **hardcoded** in [mockData.ts](file:///c:/Users/User/Desktop/KitarCash-demo/services/mockData.ts). Fixing means either syncing with Firestore or updating the mock data — cosmetic only, no functionality impact |
+| 8 | No driver task history | Nice-to-have UX. Driver can still complete tasks fine. |
+
+---
+
+## Tier 1 Implementation Details
+
+### Fix #9 — Driver can't accept "pooled" tasks
+
+**File:** [firestore.rules](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules) (the deployed version with `isDriver()`)
+
+**Problem:** The update rule Case 1 only checks `resource.data.status == 'waiting'`. But by the time drivers see tasks, they should be `'pooled'`.
+
+**Change:** Update Case 1 to also allow `'pooled'`:
+```diff
+- (isDriver() && resource.data.status == 'waiting') ||
++ (isDriver() && (resource.data.status == 'waiting' || resource.data.status == 'pooled')) ||
+```
+
+---
+
+### Fix #10 — Phone number not showing
+
+**File:** [DriverDashboard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/pages/DriverDashboard.tsx)
+
+**Problem:** Line 35 reads `userData.phone`, but the phone number is stored on the **pickup request** as `contactNumber`, not on the user document.
+
+**Change:**
+```diff
+- userPhone: userData.phone || "No Phone Provided"
++ userPhone: data.contactNumber || userData.phone || "No Phone Provided"
+```
+
+Read from the pickup request data first (where the user actually entered it), fall back to user profile.
+
+---
+
+### Fix #7 — Driver sees un-pooled requests
+
+**File:** [DriverDashboard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/pages/DriverDashboard.tsx)
+
+**Problem:** Query includes `'waiting'` status. Drivers should only see requests that have been pooled (confirmed) or assigned to them.
+
+**Change:**
+```diff
+- where("status", "in", ["waiting", "pooled", "assigned"])
++ where("status", "in", ["pooled", "assigned"])
+```
+
+---
+
+### Fix #11 — Pooling algorithm doesn't trigger
+
+**File:** [firestoreService.ts](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts) + [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx)
+
+**Problem:** The sequence in [handleSchedulePickup](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#174-241) is:
+1. Save the request → gets ID
+2. Count nearby requests → checks `status == 'waiting'`
+
+But the newly saved request **is also** `'waiting'`, so it should be included. The real issue is that [countNearbyRequests](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#19-25) and [runPoolingAlgorithm](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#26-54) fetch all docs — including the current user's new one — but [getDistanceKm(lat, lng, r.lat, r.lng)](file:///c:/Users/User/Desktop/KitarCash-demo/services/geoUtils.ts#1-15) compares the user's position with the request positions. Since the user **just submitted from the same location**, their own request should be at distance 0 and included.
+
+The actual bug is: [countNearbyRequests](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#19-25) returns total **quantity**, but the check is `nearbyCount >= 5`. For a single user submitting qty=5 from a location with no other nearby requests, the count should be 5 and trigger pooling. Let me verify the flow more carefully — the request is saved **before** counting, so it should be included.
+
+**Most likely issue:** The [fetchPickupRequests](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#11-18) call in [countNearbyRequests](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#19-25) might not see the just-written doc due to Firestore **eventual consistency** on the client. The `addDoc` returns before the snapshot is readable.
+
+**Fix approach:** After saving, pass the count explicitly including the new request's quantity:
+```typescript
+const nearbyCount = await countNearbyRequests(lat, lng);
+// The just-saved request may not appear yet in the query,
+// so add its quantity manually
+const adjustedCount = nearbyCount; // already included if consistent, but let's ensure:
+```
+
+Actually, a simpler approach: since the request was just saved with `status: 'waiting'` at the same coordinates, the count should already include it. Let me add a small delay or use the `quantity` from the form:
+
+**Simpler approach for demo:** In [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx), after counting, include the current request's quantity in case it wasn't counted:
+```diff
+- if (nearbyCount >= 5) {
++ const currentQty = Number((form.quantity as any).value);
++ if (nearbyCount >= 5 || (nearbyCount + currentQty) >= 5) {
+```
+
+But this could double-count. The cleanest demo fix: lower the threshold or pass the new request info.
+
+**Recommended demo fix:** Change the pooling check in [handleSchedulePickup](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#174-241) to just re-count after a brief moment, or trust the count and check `nearbyCount >= 5` which should include the new request.
+
+I'll investigate further during implementation.
+
+---
+
+### Fix #1 — Confirmation modal for "Send Manually" in pickup
+
+**File:** [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx)
+
+**Approach:** 
+- Add `showManualConfirm` state
+- When user clicks "Send Manually", show ConfirmationModal instead of immediately creating transaction
+- On confirm → create transaction, redirect to wallet
+- On cancel → just show the recycling centers list (`setOption('manual')`)
+
+---
+
+### Fix #6 — Pickup status lost on navigation
+
+**File:** [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx) + [UserDashboard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/pages/UserDashboard.tsx)
+
+**Problem:** [PickupScheduler](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#125-443) is conditionally rendered (`{currentView === 'pickup' && ...}`), so it **unmounts** when switching tabs. All state is lost.
+
+**Approach:**
+- On mount, query Firestore for the user's active pickup requests (`status in ['waiting', 'pooled', 'assigned']`)
+- If found, restore `currentRequestId` and `poolStatus` from the latest request
+- Add a "Pickup History" section showing past/active requests
+- This also naturally fixes the "show previous pickup history" part of the request
+
+---
+
+## Verification Plan
+
+Since this is a Firebase app with no automated test suite, verification is **manual through the browser**:
+
+1. **Deploy** rules + functions: `firebase deploy --only functions,firestore:rules`  
+2. **Start dev server:** `npm run dev`
+3. **Test pooling flow end-to-end:**
+   - Sign up user → Schedule pickup with qty ≥ 5 → Should show "Pool Confirmed"
+   - Sign in as driver → Should only see pooled requests
+   - Accept task → Should work without error
+   - Phone number should be visible
+4. **Test Send Manually modal:**
+   - Go to Pickup → Click Send Manually → Modal appears → Cancel → stays on pickup page → Confirm → redirected to wallet
+5. **Test pickup persistence:**
+   - Schedule pickup → Navigate to Wallet → Navigate back to Pickup → Status tracker should still show
+
+---
+
+## Recommended Order of Implementation
+
+```
+#9 → #10 → #7 (5 min each — quick Firestore/query fixes)
+↓
+#11 (15 min — pooling algorithm fix)
+↓
+#1 (15 min — confirmation modal)
+↓
+#6 (45 min — pickup persistence + history)
+```
+
+Total Tier 1 = ~1.5–2 hours. After that, decide if you have energy for Tier 2.

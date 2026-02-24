@@ -1,0 +1,777 @@
+# KitarCash — Step-by-Step Fix Guide (All 16 Bugs)
+
+Follow each fix in order. Each section tells you: **which file**, **what to find**, **what to replace it with**, and **why**.
+
+---
+
+## 🔴 Fix #1 — [analyzeImage](file:///c:/Users/User/Desktop/KitarCash-demo/services/geminiService.ts#12-89) returns `undefined` on empty response
+
+**File:** [geminiService.ts](file:///c:/Users/User/Desktop/KitarCash-demo/services/geminiService.ts)
+
+**What's wrong:** If the Gemini API returns an empty response, the function silently returns `undefined` instead of an [EWasteItem](file:///c:/Users/User/Desktop/KitarCash-demo/types.ts#7-19), which crashes the Chatbot.
+
+**Find this code** (around line 77–88):
+```typescript
+  const jsonText = response.text;
+  
+  if (jsonText) {
+      // Parse the JSON string directly into your TypeScript interface
+      const eWasteData: EWasteItem = JSON.parse(jsonText);
+      console.log('Structured E-Waste Data:', eWasteData);
+      console.log(`\nItem: ${eWasteData.itemName} (${eWasteData.category})`);
+      return eWasteData; 
+  }
+
+ 
+  };
+```
+
+**Replace with:**
+```typescript
+  const jsonText = response.text;
+  
+  if (jsonText) {
+      // Parse the JSON string directly into your TypeScript interface
+      const eWasteData: EWasteItem = JSON.parse(jsonText);
+      console.log('Structured E-Waste Data:', eWasteData);
+      console.log(`\nItem: ${eWasteData.itemName} (${eWasteData.category})`);
+      return eWasteData; 
+  }
+
+  throw new Error('No response received from Gemini API. Please try again.');
+};
+```
+
+**Why:** We add a `throw` after the `if` block so the function never silently returns `undefined`. The error will be caught by the [Chatbot.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/Chatbot.tsx) catch block and shown to the user.
+
+---
+
+## 🔴 Fix #2 — [MapComponent](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx#34-127) prop mismatch
+
+This fix has **two parts** — update the [MapComponent](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx#34-127) to accept the new props, and keep the caller working.
+
+**File:** [MapComponent.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx)
+
+**Find this code** (around lines 16–18):
+```typescript
+interface MapComponentProps {
+  onDataLoaded?: (data: any[]) => void;
+}
+```
+
+**Replace with:**
+```typescript
+interface MapComponentProps {
+  centers?: { id: string; name: string; lat: number; lng: number; address: string }[];
+  height?: string;
+  onDataLoaded?: (data: any[]) => void;
+}
+```
+
+**Then, find the function signature** (around line 34):
+```typescript
+export default function MapComponent({ onDataLoaded }: MapComponentProps) {
+```
+
+**Replace with:**
+```typescript
+export default function MapComponent({ centers, height, onDataLoaded }: MapComponentProps) {
+```
+
+**Then, find the `useEffect` that fetches from Firebase** (around lines 40–63):
+```typescript
+  // 1. Fetch and Normalize Data from Firebase
+  useEffect(() => {
+    async function fetchCenters() {
+      try {
+        // CRITICAL FIX: Match the collection name exactly with your Firebase Rules "recyclingCenters"
+        const snapshot = await getDocs(collection(db, "recyclingCenters")); 
+        
+        const data = snapshot.docs.map(doc => {
+          const raw = doc.data();
+          return {
+            id: doc.id,
+            name: raw.name || "Unknown Center",
+            address: raw.address || "No Address",
+            lat: Number(raw.lat), 
+            lng: Number(raw.lng)
+          } as RecyclingCenter;
+        });
+        setRecyclingCenters(data);
+      } catch (err) {
+        // If this still fails, double-check your Firebase Rules "allow read"
+        console.error("Firebase Permission or Fetch Error:", err);
+      }
+    }
+    fetchCenters();
+  }, []);
+```
+
+**Replace with:**
+```typescript
+  // 1. Use passed-in centers prop if available, otherwise fetch from Firebase
+  useEffect(() => {
+    if (centers && centers.length > 0) {
+      setRecyclingCenters(centers as RecyclingCenter[]);
+      return;
+    }
+
+    async function fetchCenters() {
+      try {
+        const snapshot = await getDocs(collection(db, "recyclingCenters")); 
+        
+        const data = snapshot.docs.map(doc => {
+          const raw = doc.data();
+          return {
+            id: doc.id,
+            name: raw.name || "Unknown Center",
+            address: raw.address || "No Address",
+            lat: Number(raw.lat), 
+            lng: Number(raw.lng)
+          } as RecyclingCenter;
+        });
+        setRecyclingCenters(data);
+      } catch (err) {
+        console.error("Firebase Permission or Fetch Error:", err);
+      }
+    }
+    fetchCenters();
+  }, [centers]);
+```
+
+**Finally, find the hardcoded height** (around line 121):
+```typescript
+      style={{ height: "300px", width: "100%" }} 
+```
+
+**Replace with:**
+```typescript
+      style={{ height: height || "300px", width: "100%" }} 
+```
+
+**Why:** Now the component accepts `centers` and `height` from the parent. If `centers` are passed (like from [PickupScheduler](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#138-444)), it uses those directly instead of hitting Firestore. If not, it falls back to the Firebase fetch.
+
+---
+
+## 🔴 Fix #3 — Cancel race condition (UI gets stuck)
+
+**File:** [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx)
+
+**Find this code** (around lines 247–259):
+```typescript
+  const handleCancelPickup = async () => {
+    if (!currentRequestId) return;
+    setIsCancelling(true);
+    try {
+      await cancelPickupRequest(currentRequestId);
+      setCurrentRequestId(null);
+      setShowCancelConfirm(false);
+    } catch (err) {
+      setError('Failed to cancel request. Please try again.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+```
+
+**Replace with:**
+```typescript
+  const handleCancelPickup = async () => {
+    if (!currentRequestId) return;
+    setIsCancelling(true);
+    try {
+      await cancelPickupRequest(currentRequestId);
+      setPoolStatus('cancelled');        // ← Explicitly set status before clearing ID
+      setCurrentRequestId(null);
+      setShowCancelConfirm(false);
+    } catch (err) {
+      setError('Failed to cancel request. Please try again.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+```
+
+**Why:** Previously, the code set `currentRequestId` to `null`, which kills the Firestore listener. If the listener didn't fire fast enough, `poolStatus` would never change to `'cancelled'` and the UI would stay stuck. Now we set it explicitly.
+
+---
+
+## 🔴 Fix #4 — `setUserRole` has no auth guard
+
+**File:** [functions/src/index.ts](file:///c:/Users/User/Desktop/KitarCash-demo/functions/src/index.ts)
+
+**Find this code** (around lines 16–22):
+```typescript
+export const setUserRole = onCall(async (request) => {
+  // For the demo: only allow this if the caller is already an admin
+  // For initial setup: temporarily remove this check, call it once, then put it back
+  // if (request.auth?.token.role !== 'admin') {
+  //   throw new HttpsError('permission-denied', 'Only admins can set roles.');
+  // }
+
+  const { uid, role, centerId } = request.data;
+```
+
+**Replace with:**
+```typescript
+export const setUserRole = onCall(async (request) => {
+  // Only allow admins to set roles
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Must be logged in.');
+  }
+  if (request.auth.token.role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Only admins can set roles.');
+  }
+
+  const { uid, role, centerId } = request.data;
+```
+
+**Why:** Un-commenting the guard prevents any random user from giving themselves admin access. You'll need to set up your first admin manually in the Firebase console (Authentication → Custom Claims) or via a one-time script before this works.
+
+> [!TIP]
+> To create your first admin, go to Firebase Console → Authentication → find your admin user → copy their UID. Then run this one-time command using the Firebase Admin SDK or the Firebase Functions shell:
+> ```
+> admin.auth().setCustomUserClaims('YOUR_ADMIN_UID', { role: 'admin' });
+> ```
+> After that, re-deploy with the guard enabled.
+
+---
+
+## 🔴 Fix #5 — `pickupRequests` Firestore rules are too permissive
+
+**File:** [firestore.rules](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules)
+
+**Find this code** (around lines 48–51):
+```
+    // ─── PICKUP REQUESTS COLLECTION (existing) ─────────────────────────
+    match /pickupRequests/{requestId} {
+      allow read, write: if request.auth != null;
+    }
+```
+
+**Replace with:**
+```
+    // ─── PICKUP REQUESTS COLLECTION ─────────────────────────────────────
+    match /pickupRequests/{requestId} {
+      // Users can read their own requests
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Drivers can read all requests (to see available tasks)
+      allow read: if request.auth != null && request.auth.token.role == 'driver';
+
+      // Users can create their own requests
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+
+      // Users can update only their own requests (e.g. cancel)
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      
+      // Drivers can update requests (accept task, mark collected)
+      allow update: if request.auth != null
+        && request.auth.token.role == 'driver';
+
+      // No one can delete requests from the client
+      allow delete: if false;
+    }
+```
+
+**Why:** The old rule let anyone read/write any pickup request. Now:
+- Users can only see and edit **their own** requests
+- Drivers can see all requests and update them (accept/complete)
+- No one can delete requests from the client side
+
+---
+
+## 🔴 Fix #6 — Drivers can't read user data (names/phones)
+
+**File:** [firestore.rules](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules)
+
+**Find this code** (around lines 7–8):
+```
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+```
+
+**Replace with:**
+```
+    match /users/{uid} {
+      // Users can read their own profile
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Drivers can read user profiles (to see customer name/phone)
+      allow read: if request.auth != null && request.auth.token.role == 'driver';
+
+      // Center staff can read user profiles (to verify customers)
+      allow read: if request.auth != null && request.auth.token.role == 'recycling_center';
+```
+
+**Why:** The [DriverDashboard](file:///c:/Users/User/Desktop/KitarCash-demo/pages/DriverDashboard.tsx#6-179) fetches customer names and phones via `getDoc(doc(db, "users", data.userId))`. Without this rule, every fetch would be denied and all customers would show as "Customer" / "N/A".
+
+---
+
+## 🟡 Fix #7 — `isUploading` referenced before declaration
+
+**File:** [Chatbot.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/Chatbot.tsx)
+
+**Find this code** (around line 277):
+```typescript
+  const isUploading = uploadProgress !== null;
+```
+
+**Move it up.** Cut this line from line 277 and paste it right after the state declarations. Find this section (around lines 27–28):
+```typescript
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+```
+
+**Replace with:**
+```typescript
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const isUploading = uploadProgress !== null;
+```
+
+**Then delete the original line 277** (now there'll be a duplicate — remove the old one that was further down in the file. It looks like `const isUploading = uploadProgress !== null;` sitting alone before the `return` statement).
+
+**Why:** While technically this works at runtime due to JavaScript scoping rules, it's confusing and fragile. Moving the declaration near the top, next to other derived state, makes it clear and avoids any future issues.
+
+---
+
+## 🟡 Fix #8 — "Send Manually" silently fails on error
+
+**File:** [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx)
+
+**Find this code** (around lines 261–281):
+```typescript
+  const handleSendManually = async () => {
+    if (!identifiedItem) {
+      setOption('manual');
+      return;
+    }
+
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const fn = httpsCallable(getFunctions(), 'createTransaction');
+      await fn({
+        itemName: identifiedItem.itemName,
+        itemCategory: identifiedItem.category,
+        estimatedValueMin: identifiedItem.estimatedValue.min,
+        estimatedValueMax: identifiedItem.estimatedValue.max,
+      });
+      setCurrentView('wallet');
+    } catch (err: any) {
+      console.error('Failed to create transaction:', err);
+      setOption('manual');
+    }
+  };
+```
+
+**Replace with:**
+```typescript
+  const handleSendManually = async () => {
+    if (!identifiedItem) {
+      setOption('manual');
+      return;
+    }
+
+    try {
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const fn = httpsCallable(getFunctions(), 'createTransaction');
+      await fn({
+        itemName: identifiedItem.itemName,
+        itemCategory: identifiedItem.category,
+        estimatedValueMin: identifiedItem.estimatedValue.min,
+        estimatedValueMax: identifiedItem.estimatedValue.max,
+      });
+      setCurrentView('wallet');
+    } catch (err: any) {
+      console.error('Failed to create transaction:', err);
+      setError('Failed to create transaction. Showing nearby recycling centers instead.');
+      setOption('manual');
+    }
+  };
+```
+
+**Why:** Added `setError(...)` so the user actually sees a message explaining why they were redirected to the recycling centers list, instead of it happening silently.
+
+---
+
+## 🟡 Fix #9 — Duplicate [getDistanceKm](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#5-16) function (in 3 files)
+
+**Step 1 — Create a shared utility file.**
+
+Create a new file at `c:\Users\User\Desktop\KitarCash-demo\services\geoUtils.ts`:
+
+```typescript
+/**
+ * Haversine formula: calculates the distance between two lat/lng coordinates in km.
+ */
+export const getDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+```
+
+**Step 2 — Update [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx)**
+
+Add this import at the top (after the other imports, around line 6):
+```typescript
+import { getDistanceKm } from '../services/geoUtils';
+```
+
+Then **delete** the entire [getDistanceKm](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#5-16) function on lines 23–33 (the one starting with `const getDistanceKm = ...`).
+
+**Step 3 — Update [firestoreService.ts](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts)**
+
+Add this import at the top (after line 2):
+```typescript
+import { getDistanceKm } from './geoUtils';
+```
+
+Then **delete** the [getDistanceKm](file:///c:/Users/User/Desktop/KitarCash-demo/services/firestoreService.ts#5-16) function on lines 5–15.
+
+**Step 4 — Update [MapComponent.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx)**
+
+Add this import at the top (after line 3):
+```typescript
+import { getDistanceKm } from '../services/geoUtils';
+```
+
+Then **delete** the [getDistance](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx#20-33) function on lines 23–32, and update the reference on line 84:
+
+Find:
+```typescript
+        distance: getDistance(userLocation.lat, userLocation.lng, rc.lat, rc.lng)
+```
+Replace with:
+```typescript
+        distance: getDistanceKm(userLocation.lat, userLocation.lng, rc.lat, rc.lng)
+```
+
+**Why:** One source of truth. If you ever need to fix the formula, you change it in one place.
+
+---
+
+## 🟡 Fix #10 — Wrong comment label on `setDefaultRole`
+
+**File:** [functions/src/index.ts](file:///c:/Users/User/Desktop/KitarCash-demo/functions/src/index.ts)
+
+**Find this code** (around lines 51–54):
+```typescript
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: verifyAndCredit
+// ─────────────────────────────────────────────────────────────────────────────
+export const setDefaultRole = onCall(async (request) => {
+```
+
+**Replace with:**
+```typescript
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: setDefaultRole
+// ─────────────────────────────────────────────────────────────────────────────
+export const setDefaultRole = onCall(async (request) => {
+```
+
+**Why:** It's just a stale comment from copy-pasting. Fixing it prevents confusion.
+
+---
+
+## 🟡 Fix #11 — `createTransaction` blocks new users (custom claims not set)
+
+This is the **most impactful bug**. New users sign up, their Firestore doc says `role: 'user'`, but their **Auth token** has no `role` claim. `createTransaction` checks the token, not Firestore.
+
+**File:** [context/AuthContext.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/context/AuthContext.tsx)
+
+**Find this code** (around lines 127–154):
+```typescript
+    try {
+      // 1. Create account in Firebase Authentication
+      const credential = await createUserWithEmailAndPassword(auth, email, pass);
+      
+      // 2. Set the display name in the Auth profile
+      await updateProfile(credential.user, { displayName: fullName });
+
+      // 3. Create the user document in Firestore. 
+      // ROLE IS HARDCODED TO 'user' FOR SECURITY.
+      await setDoc(doc(db, 'users', credential.user.uid), {
+        uid: credential.user.uid,
+        email: credential.user.email,
+        fullName: fullName,
+        role: 'user', // <--- Default role assigned here
+        walletBalance: 0,
+        centerId: null,
+        isApproved: false, // Useful flag for admin dashboard
+        createdAt: serverTimestamp(),
+      });
+
+      // 4. Update local state
+      setUser({ id: credential.user.uid, email: credential.user.email!, displayName: fullName });
+      setRole('user');
+      
+      // Navigate all new signups to the standard user dashboard
+      navigate('/dashboard', { replace: true });
+      
+      return credential;
+```
+
+**Replace with:**
+```typescript
+    try {
+      // 1. Create account in Firebase Authentication
+      const credential = await createUserWithEmailAndPassword(auth, email, pass);
+      
+      // 2. Set the display name in the Auth profile
+      await updateProfile(credential.user, { displayName: fullName });
+
+      // 3. Create the user document in Firestore. 
+      // ROLE IS HARDCODED TO 'user' FOR SECURITY.
+      await setDoc(doc(db, 'users', credential.user.uid), {
+        uid: credential.user.uid,
+        email: credential.user.email,
+        fullName: fullName,
+        role: 'user',
+        walletBalance: 0,
+        centerId: null,
+        isApproved: false,
+        createdAt: serverTimestamp(),
+      });
+
+      // 4. Set the 'user' custom claim on the Auth token via Cloud Function
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const setDefaultRoleFn = httpsCallable(getFunctions(), 'setDefaultRole');
+      await setDefaultRoleFn();
+
+      // 5. Force-refresh the token so the new claim is available immediately
+      await credential.user.getIdToken(true);
+
+      // 6. Update local state
+      setUser({ id: credential.user.uid, email: credential.user.email!, displayName: fullName });
+      setRole('user');
+      
+      // Navigate all new signups to the standard user dashboard
+      navigate('/dashboard', { replace: true });
+      
+      return credential;
+```
+
+**Why:** After creating the user, we call `setDefaultRole` Cloud Function to set the `role: 'user'` custom claim on the Auth token. Then we call `getIdToken(true)` to force-refresh the token so the claim is immediately available. Without this, `createTransaction` would always reject new users.
+
+---
+
+## 🟡 Fix #12 — Google Sign-in button does nothing
+
+**File:** [components/auth/AuthCard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx)
+
+**Option A — Remove the button** (simplest, if you don't plan to implement it):
+
+**Find this code** (around lines 148–162):
+```tsx
+                {/* OR Separator */}
+                <div className="relative flex items-center py-2">
+                    <div className="flex-grow border-t border-gray-200"></div>
+                    <span className="flex-shrink mx-4 text-gray-400 text-xs">OR</span>
+                    <div className="flex-grow border-t border-gray-200"></div>
+                </div>
+
+                {/* Google Sign-in Placeholder */}
+                <button 
+                    type="button"
+                    className="w-full border border-gray-200 py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-gray-50 transition-all font-medium text-gray-600 text-sm"
+                >
+                    <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
+                    Sign in with Google
+                </button>
+```
+
+**Replace with:**
+```tsx
+                {/* Google Sign-in — Coming Soon */}
+                <div className="relative flex items-center py-2">
+                    <div className="flex-grow border-t border-gray-200"></div>
+                    <span className="flex-shrink mx-4 text-gray-400 text-xs">OR</span>
+                    <div className="flex-grow border-t border-gray-200"></div>
+                </div>
+
+                <button 
+                    type="button"
+                    disabled
+                    className="w-full border border-gray-200 py-3 rounded-xl flex items-center justify-center gap-3 font-medium text-gray-400 text-sm cursor-not-allowed opacity-60"
+                    title="Google Sign-in coming soon"
+                >
+                    <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4 opacity-50" />
+                    Sign in with Google (Coming Soon)
+                </button>
+```
+
+**Why:** Making it `disabled` and visually greyed out prevents user confusion. They can see it exists but know it's not functional yet.
+
+---
+
+## 🟡 Fix #13 — Geolocation error silently ignored in [PickupScheduler](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx#138-444)
+
+**File:** [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx)
+
+**Find this code** (around lines 149–156):
+```typescript
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition((position) => {
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+    });
+  }, []);
+```
+
+**Replace with:**
+```typescript
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (err) => {
+        console.warn("Geolocation denied or unavailable:", err.message);
+        // Fall back to a default location (Kuala Lumpur center)
+        setUserLocation({ lat: 3.1390, lng: 101.6869 });
+      }
+    );
+  }, []);
+```
+
+**Why:** If the user denies location permission, we now fall back to a default KL coordinate instead of leaving `userLocation` as `null` forever. The distance calculations will still work (showing distance from KL center), which is better than showing hardcoded mock distances.
+
+---
+
+## 🟡 Fix #14 — Unused `navigate` import in [AuthCard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx)
+
+**File:** [components/auth/AuthCard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx)
+
+**Find this line** (line 2):
+```typescript
+import { useNavigate } from 'react-router-dom';
+```
+**Delete it.**
+
+**Find this line** (around line 20):
+```typescript
+    const navigate = useNavigate();
+```
+**Delete it.**
+
+**Why:** This is dead code. Navigation after login/signup is already handled inside [AuthContext.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/context/AuthContext.tsx), not here.
+
+---
+
+## 🟠 Fix #15 — Center staff can read ALL transactions
+
+**File:** [firestore.rules](file:///c:/Users/User/Desktop/KitarCash-demo/firestore.rules)
+
+**Find this code** (around lines 22–36):
+```
+    // ─── TRANSACTIONS COLLECTION ───────────────────────────────────────
+    match /transactions/{txnId} {
+
+      // A user can only read their own transactions
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      // Center staff can read any transaction (to verify QR codes)
+      allow read: if request.auth != null
+        && request.auth.token.role == 'recycling_center';
+
+      // NO client writes to transactions at all.
+      // createTransaction() and verifyAndCredit() Cloud Functions handle all writes.
+      allow write: if false;
+    }
+```
+
+**Replace with:**
+```
+    // ─── TRANSACTIONS COLLECTION ───────────────────────────────────────
+    match /transactions/{txnId} {
+
+      // A user can only read their own transactions
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      // Center staff can read transactions assigned to them, or unassigned QR codes
+      allow read: if request.auth != null
+        && request.auth.token.role == 'recycling_center'
+        && (resource.data.centerId == null || resource.data.centerId == request.auth.token.centerId);
+
+      // NO client writes to transactions at all.
+      // createTransaction() and verifyAndCredit() Cloud Functions handle all writes.
+      allow write: if false;
+    }
+```
+
+**Why:** Now center staff can only read transactions that either haven't been assigned to any center yet (`centerId == null`, i.e. fresh QR codes waiting to be scanned), or belong to their own center. They can't snoop on other centers' transactions.
+
+---
+
+## 🟠 Fix #16 — [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) file may be committed to Git
+
+**File:** [.gitignore](file:///c:/Users/User/Desktop/KitarCash-demo/.gitignore)
+
+**Open the [.gitignore](file:///c:/Users/User/Desktop/KitarCash-demo/.gitignore) file** and check if [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) is listed. If it's **not** there, add this line at the top:
+
+```
+.env
+.env.local
+.env.*.local
+```
+
+**Then, if [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) was already committed**, you need to remove it from Git tracking:
+
+Run this in your terminal:
+```bash
+git rm --cached .env
+git commit -m "Remove .env from version control"
+```
+
+**Why:** [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) contains your API keys (Firebase, Gemini, EmailJS). If pushed to a public repo, anyone can steal them. The `git rm --cached` command removes the file from Git tracking without deleting it from your disk.
+
+> [!CAUTION]
+> If this repo has ever been pushed to a **public** GitHub repository with the [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) file, you should **rotate all API keys** immediately — Firebase, Gemini, and EmailJS. Old keys in Git history are still accessible even after removing the file.
+
+---
+
+## ✅ You're Done!
+
+After applying all 16 fixes, here's a quick checklist:
+
+| # | Fix | Needs Redeploy? |
+|---|-----|-----------------|
+| 1 | [geminiService.ts](file:///c:/Users/User/Desktop/KitarCash-demo/services/geminiService.ts) — throw on empty response | No (Vite auto-reloads) |
+| 2 | [MapComponent.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/MapComponent.tsx) — accept props | No |
+| 3 | [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx) — cancel race condition | No |
+| 4 | Cloud Functions — auth guard | **Yes** (`firebase deploy --only functions`) |
+| 5 | Firestore rules — pickup requests | **Yes** (`firebase deploy --only firestore:rules`) |
+| 6 | Firestore rules — driver reads | **Yes** (same deploy as #5) |
+| 7 | [Chatbot.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/Chatbot.tsx) — move `isUploading` | No |
+| 8 | [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx) — error message | No |
+| 9 | Shared `geoUtils.ts` | No |
+| 10 | Cloud Functions — fix comment | **Yes** (deploy with #4) |
+| 11 | [AuthContext.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/context/AuthContext.tsx) — set custom claim | **Yes** (deploy functions + frontend) |
+| 12 | [AuthCard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx) — disable Google button | No |
+| 13 | [PickupScheduler.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/PickupScheduler.tsx) — geolocation fallback | No |
+| 14 | [AuthCard.tsx](file:///c:/Users/User/Desktop/KitarCash-demo/components/auth/AuthCard.tsx) — remove dead import | No |
+| 15 | Firestore rules — center read scope | **Yes** (deploy with #5) |
+| 16 | [.gitignore](file:///c:/Users/User/Desktop/KitarCash-demo/.gitignore) — protect [.env](file:///c:/Users/User/Desktop/KitarCash-demo/.env) | No (Git-only change) |
+
+You can batch the deploys:
+```bash
+firebase deploy --only functions,firestore:rules
+```

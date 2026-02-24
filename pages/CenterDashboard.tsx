@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, limit as fbLimit, getDocs } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Html5Qrcode } from 'html5-qrcode';
 import { db } from '../firebase';
@@ -43,6 +43,8 @@ const CenterDashboard: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [recentVerifications, setRecentVerifications] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   // Listen to transaction in real-time when txnId is set
   useEffect(() => {
@@ -72,6 +74,27 @@ const CenterDashboard: React.FC = () => {
     return () => unsubscribe();
   }, [txnId]);
 
+  // Load recent verifications for this center
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const q = query(
+          collection(db, 'transactions'),
+          where('status', '==', 'paid'),
+          orderBy('paidAt', 'desc'),
+          fbLimit(20)
+        );
+        const snap = await getDocs(q);
+        setRecentVerifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error('Failed to load verification history:', err);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+    loadHistory();
+  }, [submitSuccess]); // re-fetch when a new verification is submitted
+
   // Start QR scanner
   const startScanner = async () => {
     setScanError(null);
@@ -89,7 +112,7 @@ const CenterDashboard: React.FC = () => {
           setTxnId(decodedText);
           stopScanner();
         },
-        () => {} // Ignore per-frame errors
+        () => { } // Ignore per-frame errors
       );
     } catch (err: any) {
       setScanError('Camera access denied or not available. Please enter the transaction ID manually.');
@@ -99,7 +122,7 @@ const CenterDashboard: React.FC = () => {
 
   const stopScanner = async () => {
     if (scannerRef.current) {
-      await scannerRef.current.stop().catch(() => {});
+      await scannerRef.current.stop().catch(() => { });
       scannerRef.current = null;
     }
     setIsScanning(false);
@@ -386,6 +409,35 @@ const CenterDashboard: React.FC = () => {
               </div>
             )}
           </>
+        )}
+      </div>
+      {/* Recent Verifications History */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 className="text-xl font-bold text-green-800 mb-4">📋 Recent Verifications</h2>
+        {historyLoading ? (
+          <p className="text-gray-400 text-center py-4">Loading history...</p>
+        ) : recentVerifications.length === 0 ? (
+          <p className="text-gray-400 text-center py-4">No verifications yet.</p>
+        ) : (
+          <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+            {recentVerifications.map((v) => (
+              <div key={v.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold text-sm text-gray-800">{v.confirmedDeviceType || v.itemName}</p>
+                    <p className="text-xs text-gray-500 capitalize">{v.itemCategory}</p>
+                    <p className="text-[10px] font-mono text-gray-400 mt-1">{v.id}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-green-600">RM{(v.finalReward || 0).toFixed(2)}</p>
+                    <p className="text-[10px] text-gray-400">
+                      {v.paidAt?.toDate ? v.paidAt.toDate().toLocaleDateString() : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

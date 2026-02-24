@@ -15,8 +15,13 @@ interface Transaction {
   estimatedValueMax: number;
   status: string;
   finalReward: number | null;
+  centerId: string | null;
+  confirmedDeviceType: string | null;
+  valuationMethod: string | null;
+  finalWeightKg: number | null;
   createdAt: any;
   paidAt: any;
+  verifiedAt: any;
 }
 
 const Wallet: React.FC = () => {
@@ -111,101 +116,157 @@ const Wallet: React.FC = () => {
         onConfirm={handleConfirmGenerateQR}
         onCancel={() => setShowConfirmModal(false)}
       />
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-      {/* Left: Balance + QR */}
-      <div className="lg:col-span-1 space-y-8">
-        <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 text-center">
-          <h2 className="text-lg font-medium text-green-700">Wallet Balance</h2>
-          <p className="text-5xl font-bold text-green-600 mt-2">
-            RM{walletBalance.toFixed(2)}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">Updated in real-time</p>
+        {/* Left: Balance + QR */}
+        <div className="lg:col-span-1 space-y-8">
+          <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6 text-center">
+            <h2 className="text-lg font-medium text-green-700">Wallet Balance</h2>
+            <p className="text-5xl font-bold text-green-600 mt-2">
+              RM{walletBalance.toFixed(2)}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Updated in real-time</p>
+          </div>
+
+          <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
+            <h3 className="text-xl font-bold text-green-700 mb-4">Drop-off QR Code</h3>
+            {activeQrTxnId ? (
+              <div className="flex flex-col items-center">
+                <QRCodeSVG
+                  value={activeQrTxnId}
+                  size={200}
+                  bgColor="#ffffff"
+                  fgColor="#15803d"
+                  className="rounded-lg"
+                />
+                <p className="text-xs text-gray-500 mt-3 text-center">
+                  Show this at the recycling center.
+                </p>
+                <p className="text-xs font-mono text-gray-400 mt-1 break-all text-center">
+                  {activeQrTxnId}
+                </p>
+                <button
+                  onClick={() => setActiveQrTxnId(null)}
+                  className="mt-4 text-sm text-green-600 hover:underline"
+                >
+                  Hide QR
+                </button>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm text-gray-500 mb-4">
+                  After identifying an item with the AI, tap "Send Manually" to generate your QR.
+                </p>
+                <button
+                  onClick={handleGenerateQR}
+                  disabled={isCreatingTxn}
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                >
+                  <QrCodeIcon className="w-6 h-6" />
+                  <span>{isCreatingTxn ? 'Generating...' : 'Generate Test QR'}</span>
+                </button>
+                {txnError && <p className="text-red-500 text-sm mt-2">{txnError}</p>}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-green-700 mb-4">Drop-off QR Code</h3>
-          {activeQrTxnId ? (
-            <div className="flex flex-col items-center">
-              <QRCodeSVG
-                value={activeQrTxnId}
-                size={200}
-                bgColor="#ffffff"
-                fgColor="#15803d"
-                className="rounded-lg"
-              />
-              <p className="text-xs text-gray-500 mt-3 text-center">
-                Show this at the recycling center.
-              </p>
-              <p className="text-xs font-mono text-gray-400 mt-1 break-all text-center">
-                {activeQrTxnId}
-              </p>
-              <button
-                onClick={() => setActiveQrTxnId(null)}
-                className="mt-4 text-sm text-green-600 hover:underline"
-              >
-                Hide QR
-              </button>
-            </div>
+        {/* Right: Transaction History */}
+        <div className="lg:col-span-2 bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
+          <h3 className="text-xl font-bold text-green-700 mb-4">Transaction History</h3>
+          {transactions.length === 0 ? (
+            <p className="text-gray-400 text-center py-8">
+              No transactions yet. Identify an item and send it manually to get started!
+            </p>
           ) : (
-            <div>
-              <p className="text-sm text-gray-500 mb-4">
-                After identifying an item with the AI, tap "Send Manually" to generate your QR.
-              </p>
-              <button
-                onClick={handleGenerateQR}
-                disabled={isCreatingTxn}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
-              >
-                <QrCodeIcon className="w-6 h-6" />
-                <span>{isCreatingTxn ? 'Generating...' : 'Generate Test QR'}</span>
-              </button>
-              {txnError && <p className="text-red-500 text-sm mt-2">{txnError}</p>}
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              {transactions.map((tx) => (
+                <div key={tx.txnId} className="bg-gray-100 p-4 rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold">{tx.itemName}</p>
+                      <p className="text-xs text-gray-500 capitalize">{tx.itemCategory}</p>
+                      <p className={`text-sm font-medium mt-1 ${getStatusColor(tx.status)}`}>
+                        {getStatusLabel(tx.status)}
+                      </p>
+                      {tx.status === 'qr_generated' && (
+                        <div className="flex gap-3 mt-1">
+                          <button
+                            onClick={() => setActiveQrTxnId(tx.txnId)}
+                            className="text-xs text-green-600 hover:underline"
+                          >
+                            Show QR →
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm('Cancel this transaction? The QR code will no longer work.')) return;
+                              try {
+                                const functions = getFunctions();
+                                const cancelTxn = httpsCallable(functions, 'cancelTransaction');
+                                await cancelTxn({ transactionId: tx.txnId });
+                                if (activeQrTxnId === tx.txnId) setActiveQrTxnId(null);
+                              } catch (err: any) {
+                                alert(err.message || 'Failed to cancel transaction.');
+                              }
+                            }}
+                            className="text-xs text-red-500 hover:underline"
+                          >
+                            Cancel ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {tx.finalReward != null ? (
+                      <p className="font-bold text-green-600 text-lg">+ RM{tx.finalReward.toFixed(2)}</p>
+                    ) : (
+                      <p className="text-sm text-gray-400">RM{tx.estimatedValueMin}–{tx.estimatedValueMax} est.</p>
+                    )}
+                  </div>
+
+                  {/* Expanded details for paid transactions */}
+                  {tx.status === 'paid' && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-2 text-xs text-gray-500">
+                      <div>
+                        <span className="font-semibold text-gray-600">Transaction ID:</span>
+                        <p className="font-mono text-[10px] break-all">{tx.txnId}</p>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-600">Center:</span>
+                        <p>{tx.centerId || 'N/A'}</p>
+                      </div>
+                      {tx.confirmedDeviceType && (
+                        <div>
+                          <span className="font-semibold text-gray-600">Verified As:</span>
+                          <p>{tx.confirmedDeviceType}</p>
+                        </div>
+                      )}
+                      {tx.finalWeightKg && (
+                        <div>
+                          <span className="font-semibold text-gray-600">Weight:</span>
+                          <p>{tx.finalWeightKg} kg</p>
+                        </div>
+                      )}
+                      {tx.valuationMethod && (
+                        <div>
+                          <span className="font-semibold text-gray-600">Valuation:</span>
+                          <p className="capitalize">{tx.valuationMethod.replace('_', ' ')}</p>
+                        </div>
+                      )}
+                      {tx.paidAt && (
+                        <div>
+                          <span className="font-semibold text-gray-600">Paid At:</span>
+                          <p>{tx.paidAt.toDate ? tx.paidAt.toDate().toLocaleString() : 'N/A'}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Right: Transaction History */}
-      <div className="lg:col-span-2 bg-white/70 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-lg p-6">
-        <h3 className="text-xl font-bold text-green-700 mb-4">Transaction History</h3>
-        {transactions.length === 0 ? (
-          <p className="text-gray-400 text-center py-8">
-            No transactions yet. Identify an item and send it manually to get started!
-          </p>
-        ) : (
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            {transactions.map((tx) => (
-              <div key={tx.txnId} className="bg-gray-100 p-4 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-semibold">{tx.itemName}</p>
-                    <p className="text-xs text-gray-500 capitalize">{tx.itemCategory}</p>
-                    <p className={`text-sm font-medium mt-1 ${getStatusColor(tx.status)}`}>
-                      {getStatusLabel(tx.status)}
-                    </p>
-                    {tx.status === 'qr_generated' && (
-                      <button
-                        onClick={() => setActiveQrTxnId(tx.txnId)}
-                        className="text-xs text-green-600 hover:underline mt-1"
-                      >
-                        Show QR →
-                      </button>
-                    )}
-                  </div>
-                  {tx.finalReward != null ? (
-                    <p className="font-bold text-green-600 text-lg">+ RM{tx.finalReward.toFixed(2)}</p>
-                  ) : (
-                    <p className="text-sm text-gray-400">RM{tx.estimatedValueMin}–{tx.estimatedValueMax} est.</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
-
-    </div>
     </>
   );
 };

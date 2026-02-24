@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
+import { getDistanceKm } from '../services/geoUtils';
 
 // Global declaration for Google Maps API to satisfy TypeScript
 declare const google: any;
@@ -14,53 +15,46 @@ interface RecyclingCenter {
 }
 
 interface MapComponentProps {
+  centers?: { id: string; name: string; lat: number; lng: number; address: string }[];
+  height?: string;
   onDataLoaded?: (data: any[]) => void;
 }
 
-/**
- * Haversine formula to calculate distance between two coordinates in km
- */
-const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
 
-export default function MapComponent({ onDataLoaded }: MapComponentProps) {
+export default function MapComponent({ centers, height, onDataLoaded }: MapComponentProps) {
+
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const [recyclingCenters, setRecyclingCenters] = useState<RecyclingCenter[]>([]);
 
-  // 1. Fetch and Normalize Data from Firebase
+  // 1. Use passed-in centers prop if available, otherwise fetch from Firebase
   useEffect(() => {
+    if (centers && centers.length > 0) {
+      setRecyclingCenters(centers as RecyclingCenter[]);
+      return;
+    }
+
     async function fetchCenters() {
       try {
-        // CRITICAL FIX: Match the collection name exactly with your Firebase Rules "recyclingCenters"
-        const snapshot = await getDocs(collection(db, "recyclingCenters")); 
-        
+        const snapshot = await getDocs(collection(db, "recyclingCenters"));
+
         const data = snapshot.docs.map(doc => {
           const raw = doc.data();
           return {
             id: doc.id,
             name: raw.name || "Unknown Center",
             address: raw.address || "No Address",
-            lat: Number(raw.lat), 
+            lat: Number(raw.lat),
             lng: Number(raw.lng)
           } as RecyclingCenter;
         });
         setRecyclingCenters(data);
       } catch (err) {
-        // If this still fails, double-check your Firebase Rules "allow read"
         console.error("Firebase Permission or Fetch Error:", err);
       }
     }
     fetchCenters();
-  }, []);
+  }, [centers]);
 
   // 2. Initialize Map and Render Markers
   useEffect(() => {
@@ -81,7 +75,7 @@ export default function MapComponent({ onDataLoaded }: MapComponentProps) {
       // Calculate distances and sort for Sidebar/Parent component
       const sortedData = recyclingCenters.map(rc => ({
         ...rc,
-        distance: getDistance(userLocation.lat, userLocation.lng, rc.lat, rc.lng)
+        distance: getDistanceKm(userLocation.lat, userLocation.lng, rc.lat, rc.lng)
       })).sort((a, b) => a.distance - b.distance);
 
       if (onDataLoaded && sortedData.length > 0) {
@@ -117,10 +111,10 @@ export default function MapComponent({ onDataLoaded }: MapComponentProps) {
   }, [recyclingCenters]);
 
   return (
-    <div 
-      ref={mapRef} 
-      style={{ height: "300px", width: "100%" }} 
-      className="rounded-2xl shadow-lg border-2 border-green-50" 
+    <div
+      ref={mapRef}
+      style={{ height: height || "300px", width: "100%" }}
+      className="rounded-2xl shadow-lg border-2 border-green-50"
     />
   );
 }

@@ -8,17 +8,18 @@ const db = admin.firestore();
 // ─────────────────────────────────────────────────────────────────────────────
 // FUNCTION: setUserRole
 //
-// This is an ADMIN TOOL. You call this manually (via the Firebase Emulator or
-// a one-time script) to assign roles to your test accounts.
+// This is an ADMIN TOOL. You call this manually to assign roles to your test accounts.
 //
 // Usage: Call this function with { uid: "...", role: "recycling_center", centerId: "center_xyz" }
 // ─────────────────────────────────────────────────────────────────────────────
 export const setUserRole = onCall(async (request) => {
-  // For the demo: only allow this if the caller is already an admin
-  // For initial setup: temporarily remove this check, call it once, then put it back
-  // if (request.auth?.token.role !== 'admin') {
-  //   throw new HttpsError('permission-denied', 'Only admins can set roles.');
-  // }
+  // Only allow admins to set roles
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Must be logged in.');
+  }
+  if (request.auth.token.role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Only admins can set roles.');
+  }
 
   const { uid, role, centerId } = request.data;
 
@@ -49,7 +50,7 @@ export const setUserRole = onCall(async (request) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FUNCTION: verifyAndCredit
+// FUNCTION: setDefaultRole
 // ─────────────────────────────────────────────────────────────────────────────
 export const setDefaultRole = onCall(async (request) => {
   if (!request.auth) {
@@ -123,6 +124,42 @@ export const createTransaction = onCall(async (request) => {
   return { txnId };
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: cancelTransaction
+// ─────────────────────────────────────────────────────────────────────────────
+export const cancelTransaction = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const { transactionId } = request.data;
+  if (!transactionId) {
+    throw new HttpsError('invalid-argument', 'transactionId is required.');
+  }
+
+  const txnRef = db.collection('transactions').doc(transactionId);
+  const txnSnap = await txnRef.get();
+
+  if (!txnSnap.exists) {
+    throw new HttpsError('not-found', 'Transaction not found.');
+  }
+
+  const txnData = txnSnap.data()!;
+
+  // Only the owner can cancel
+  if (txnData.userId !== request.auth.uid) {
+    throw new HttpsError('permission-denied', 'You can only cancel your own transactions.');
+  }
+
+  // Only qr_generated (awaiting verification) can be cancelled
+  if (txnData.status !== 'qr_generated') {
+    throw new HttpsError('failed-precondition', 'Only awaiting-verification transactions can be cancelled.');
+  }
+
+  await txnRef.delete();
+
+  return { success: true };
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FUNCTION: verifyAndCredit
@@ -197,7 +234,7 @@ export const verifyAndCredit = onCall(async (request) => {
       });
     }
 
-    
+
     // 5d. Perform writes atomically
     // Write: Update the transaction record
     firestoreTransaction.update(txnRef, {

@@ -4,7 +4,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 const chat = ai.chats.create({
-    model: 'gemini-2.5-flash',
+  model: 'gemini-2.5-flash',
 });
 
 
@@ -15,7 +15,7 @@ export const analyzeImage = async (file: File): Promise<EWasteItem> => {
   const imagePart = {
     inlineData: {
       mimeType: file.type,
-      data: await fileToBase64(file), 
+      data: await fileToBase64(file),
     },
   };
 
@@ -28,12 +28,12 @@ export const analyzeImage = async (file: File): Promise<EWasteItem> => {
     // You could use responseSchema for a structured JSON output
     config: {
       responseMimeType: 'application/json',
-        responseSchema: {
+      responseSchema: {
         type: Type.OBJECT,
         properties: {
-          id: { 
-            type: Type.STRING, 
-            description: "Generate a unique identifier string for this item." 
+          id: {
+            type: Type.STRING,
+            description: "Generate a unique identifier string for this item."
           },
           itemName: { type: Type.STRING },
           category: {
@@ -48,26 +48,26 @@ export const analyzeImage = async (file: File): Promise<EWasteItem> => {
             },
             required: ['min', 'max'],
           },
-          environmentalImpact: { 
+          environmentalImpact: {
             type: Type.STRING,
             description: "A brief description of the environmental impact of this e-waste."
           },
-          hazardFlag: { 
+          hazardFlag: {
             type: Type.BOOLEAN,
             description: "True if the item poses an immediate physical or chemical hazard."
           },
-          hazardDetails: { 
+          hazardDetails: {
             type: Type.STRING,
             description: "Details about the hazard. Leave null if hazardFlag is false."
           },
         },
         // Enforce which fields the model MUST return
         required: [
-          'id', 
-          'itemName', 
-          'category', 
-          'estimatedValue', 
-          'environmentalImpact', 
+          'id',
+          'itemName',
+          'category',
+          'estimatedValue',
+          'environmentalImpact',
           'hazardFlag'
         ],
       },
@@ -75,32 +75,33 @@ export const analyzeImage = async (file: File): Promise<EWasteItem> => {
   });
 
   const jsonText = response.text;
-  
+
   if (jsonText) {
-      // Parse the JSON string directly into your TypeScript interface
-      const eWasteData: EWasteItem = JSON.parse(jsonText);
-      console.log('Structured E-Waste Data:', eWasteData);
-      console.log(`\nItem: ${eWasteData.itemName} (${eWasteData.category})`);
-      return eWasteData; 
+    // Parse the JSON string directly into your TypeScript interface
+    const eWasteData: EWasteItem = JSON.parse(jsonText);
+    console.log('Structured E-Waste Data:', eWasteData);
+    console.log(`\nItem: ${eWasteData.itemName} (${eWasteData.category})`);
+    return eWasteData;
   }
 
- 
-  };
+  throw new Error('No response received from Gemini API. Please try again.');
+};
 
-  
+
+
 export const analyzeText = async (userMessage: string): Promise<string> => {
   console.log('Analyzing text:', userMessage);
 
   const response = await chat.sendMessage({
     message: [{
-        text: `You are an e-waste expert assistant. Answer the user's question helpfully and concisely, 
+      text: `You are an e-waste expert assistant. Answer the user's question helpfully and concisely, 
         focusing on e-waste recycling, disposal, environmental impact, and related topics. 
         If the question is unrelated to e-waste, politely redirect them.
         
         User question: ${userMessage}`
-      }]
-    })
-      const responseText = response.text;
+    }]
+  })
+  const responseText = response.text;
 
   if (!responseText) {
     throw new Error('No response received from Gemini API');

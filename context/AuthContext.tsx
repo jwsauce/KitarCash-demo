@@ -127,7 +127,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       // 1. Create account in Firebase Authentication
       const credential = await createUserWithEmailAndPassword(auth, email, pass);
-      
+
       // 2. Set the display name in the Auth profile
       await updateProfile(credential.user, { displayName: fullName });
 
@@ -137,20 +137,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         uid: credential.user.uid,
         email: credential.user.email,
         fullName: fullName,
-        role: 'user', // <--- Default role assigned here
+        role: 'user',
         walletBalance: 0,
         centerId: null,
-        isApproved: false, // Useful flag for admin dashboard
+        isApproved: false,
         createdAt: serverTimestamp(),
       });
 
-      // 4. Update local state
+      // 4. Set the 'user' custom claim on the Auth token via Cloud Function
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const setDefaultRoleFn = httpsCallable(getFunctions(), 'setDefaultRole');
+      await setDefaultRoleFn();
+
+      // 5. Force-refresh the token so the new claim is available immediately
+      await credential.user.getIdToken(true);
+
+      // 6. Update local state
       setUser({ id: credential.user.uid, email: credential.user.email!, displayName: fullName });
       setRole('user');
-      
+
       // Navigate all new signups to the standard user dashboard
       navigate('/dashboard', { replace: true });
-      
+
       return credential;
     } catch (err: any) {
       setError(err.code === 'auth/email-already-in-use' ? 'Email already registered' : 'Registration failed');
