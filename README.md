@@ -73,10 +73,9 @@ Four user roles — recycler, recycling center staff, driver, and admin — each
 | Technology | Purpose |
 |---|---|
 | **Firebase Authentication** | User identity management with JWT custom claims for role-based access control |
-| **Cloud Firestore** | NoSQL real-time database storing users, transactions, pickup requests, and recycling center data |
-| **Firebase Cloud Functions v2** | Serverless backend logic handling transaction creation, wallet crediting, and role assignment |
+| **Firestore** | NoSQL real-time database storing users, transactions, pickup requests, and recycling center data |
+| **Firebase Cloud Functions** | Serverless backend logic handling transaction creation, wallet crediting, and role assignment |
 | **Firebase Cloud Storage** | Stores user-uploaded e-waste images securely |
-| **Firebase Hosting** | Backup hosting configuration for the production build |
 | **Google Gemini 2.5 Flash** | Multimodal AI for e-waste image identification and conversational Q&A |
 | **Google Maps JavaScript API** | Interactive map rendering with user geolocation and recycling center markers |
 
