@@ -93,21 +93,21 @@ Four user roles — recycler, recycling center staff, driver, and admin — each
 | **EmailJS** | Client-side email notifications for pickup confirmations |
 | **Vercel** | Frontend deployment and global CDN hosting |
 
-## 1. Environment Requirements
+## 6. Environment Requirements
 The project uses a modern, type-safe development stack:
 Frontend: React 19+ with TypeScript, using Vite as the build tool.
 Styling: Tailwind CSS (utility-first).
 Backend: Firebase Cloud Functions v2 (serverless environment).
 Database: Cloud Firestore (NoSQL).
-## 2. Frontend InstallationClone and Install: 
+## 7. Frontend InstallationClone and Install: 
 Clone the repository and navigate to the root folder (where package.json is located). Run npm install to download all frontend dependencies, including React, TypeScript, and the Google Generative AI SDK.
 Initialize Firebase: The firebase.ts file must be configured to initialize the Firebase SDK, including Authentication, Firestore, and Storage.
 Local Execution: Start the development server using the Vite dev command (typically npm run dev).
-## 3. Backend & Cloud Functions Setup
+## 8. Backend & Cloud Functions Setup
 The backend lives in the functions/ directory and must be deployed to Google Cloud.
 Install Backend Dependencies: Navigate to the functions/ folder and run npm install to install firebase-admin and firebase-functions.Deploy Functions: Use the Firebase CLI to push the five core server-side functions (setUserRole, setDefaultRole, createTransaction, cancelTransaction, and verifyAndCredit):
 Security Rules: Deploy the firestore.rules file to define who can read and write to the database collections.
-## 4. Environment Variables & API Key
+## 9. Environment Variables & API Key
 For the system to function, sensitive keys must be stored as environment variables (typically in the hosting platform's settings, such as Vercel). The following keys are required:
 VITE_GEMINI_API_KEY :Authenticates with Google Gemini AI for e-waste analysis.
 VITE_FIREBASE_API_KEYI:dentifies the Firebase project.
