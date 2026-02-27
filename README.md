@@ -68,7 +68,7 @@ Four user roles — recycler, recycling center staff, driver, and admin — each
 
 ### 5. Technologies Used
 
-# Google Technologies
+#### Google Technologies
 
 | Technology | Purpose |
 |---|---|
@@ -80,7 +80,7 @@ Four user roles — recycler, recycling center staff, driver, and admin — each
 | **Google Gemini 2.5 Flash** | Multimodal AI for e-waste image identification and conversational Q&A |
 | **Google Maps JavaScript API** | Interactive map rendering with user geolocation and recycling center markers |
 
-# Supporting Tools & Libraries
+#### Supporting Tools & Libraries
 
 | Technology | Purpose |
 |---|---|
