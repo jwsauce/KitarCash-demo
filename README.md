@@ -234,83 +234,82 @@ VITE_FIREBASE_AUTH_DOMAIN:Firebase Authentication domain.
 VITE_FIREBASE_PROJECT_ID:Unique Firebase project identifier.
 VITE_EMAILJS_PUBLIC_KEY:Used for sending pickup confirmation emails.
 
-### 10. 🗺️ Future Roadmap
----
+## 10. 🗺️ Future Roadmap
 
-#### 🟡 Short Term (0 – 6 Months)
+### 🟡 Short Term (0 – 6 Months)
 
-##### 👤 User Experience
+#### 👤 User Experience
 | Feature | Description |
 |---|---|
 | 🤖 Chatbot Upgrade | Integrate live Firestore data — turns chatbot into a full self-service support agent (e.g. notifies user if there's an active pool nearby in real time) |
 | 🛡️ Fraud Detection | AI rule engine detects suspicious patterns such as extremely high submission volume from a single account |
 
-##### 🚗 Driver Experience
+#### 🚗 Driver Experience
 | Feature | Description |
 |---|---|
 | 🎯 Smart Job Matching | AI automatically matches confirmed pools to the most suitable driver based on location, vehicle capacity, and current workload — replacing manual assignment |
 
-##### 🏭 Recycling Center Experience
+#### 🏭 Recycling Center Experience
 | Feature | Description |
 |---|---|
 | 📦 Pre-Arrival Notification | After pool confirmation, centers automatically receive an arrival summary — expected item types, estimated quantities, and approximate arrival time |
 
-##### 🌍 Reaching a Larger Audience
+#### 🌍 Reaching a Larger Audience
 - 📍 **Pilot Launch in Cheras** — Target high-density residential areas to refine pickup logistics and recommendation algorithm based on real user behavior before wider rollout
 - 🤝 **ERTH Partnership** — Formalize collaboration, document and track key metrics (user satisfaction, average pooling count per week) from ERTH pickups
 
 ---
 
-#### 🟠 Medium Term (6 – 12 Months)
+### 🟠 Medium Term (6 – 12 Months)
 
-##### 👤 User Experience
+#### 👤 User Experience
 | Feature | Description |
 |---|---|
 | 🪙 Rewards System | Each recycled item accumulates KitarCoins redeemable for vouchers |
 | 🟢 Green Tier Badge | Users who recycle consistently earn a badge that grants priority pickup scheduling |
 
-##### 🚗 Driver Experience
+#### 🚗 Driver Experience
 | Feature | Description |
 |---|---|
 | 🧑‍💼 Independent Driver Registration | Soft launch for individual drivers — ERTH handles corporate collections while independent drivers handle small high-demand pools |
 | 💰 Platform Commission | Independent drivers earn per pool — KitarCash takes **20% platform commission** |
 
-##### 🏭 Recycling Center Experience
+#### 🏭 Recycling Center Experience
 | Feature | Description |
 |---|---|
 | 🏢 Corporate Contract Bidding | Recycling centers bid on long-term corporate e-waste collection contracts through the platform — KitarCash takes **10% commission** per confirmed collection |
 
-##### 🌍 Reaching a Larger Audience
+#### 🌍 Reaching a Larger Audience
 - 🎓 **Universities & NGOs** — Build e-waste awareness and onboard communities onto the platform
 - 🏙️ **Regional Company Partners** — Target new logistics partners outside Klang Valley to expand geographic coverage
 
 ---
 
-#### 🔴 Long Term (12 Months+)
+### 🔴 Long Term (12 Months+)
 
-##### 👤 User Experience
+#### 👤 User Experience
 | Feature | Description |
 |---|---|
 | 📊 ESG Sustainability Reports | AI auto-compiles corporate clients' recycling activity into formatted reports — total weight diverted from landfill, estimated CO₂ savings, item categories, pickup count |
 
-##### 🚗 Driver Experience
+#### 🚗 Driver Experience
 | Feature | Description |
 |---|---|
 | 🗺️ Dynamic Route Optimization | AI suggests fuel-saving routes factoring in live traffic and road conditions as new nearby pickups are added |
 | 🏆 ERTH as Premium Partner | Company fleets like ERTH handle corporate and bulk contracts only — all standard pickups handled entirely by independent drivers |
 
-##### 🏭 Recycling Center Experience
+#### 🏭 Recycling Center Experience
 | Feature | Description |
 |---|---|
 | 📈 Live Commodity Pricing Dashboard | Real-time spot prices for recoverable materials (copper, lithium, aluminum) |
 | 🤖 AI Hold or Sell Recommendation | AI analyzes price trends and recommends whether to sell a material batch immediately or hold for a better price window |
 
-##### 🌍 Reaching a Larger Audience
+#### 🌍 Reaching a Larger Audience
 - 🌏 **Southeast Asia Expansion** — Sign master MOU agreements with large regional waste management groups operating across multiple SEA countries (e.g. Veolia) to expand without building local operations from scratch
 
 ---
 
-#### 📊 Roadmap Summary
+### 📊 Roadmap Summary
 
 | Phase | Timeline | Focus |
 |---|---|---|
