@@ -66,3 +66,29 @@ Every recycling transaction generates a unique QR code, creating a verifiable li
 🔒 Role-Based Access Control
 Four user roles — recycler, recycling center staff, driver, and admin — each with dedicated dashboards. Roles are embedded in Firebase JWT tokens server-side, preventing any possibility of self-assigned elevated permissions.
 
+### 5. Technologies Used
+
+# Google Technologies
+
+| Technology | Purpose |
+|---|---|
+| **Firebase Authentication** | User identity management with JWT custom claims for role-based access control |
+| **Cloud Firestore** | NoSQL real-time database storing users, transactions, pickup requests, and recycling center data |
+| **Firebase Cloud Functions v2** | Serverless backend logic handling transaction creation, wallet crediting, and role assignment |
+| **Firebase Cloud Storage** | Stores user-uploaded e-waste images securely |
+| **Firebase Hosting** | Backup hosting configuration for the production build |
+| **Google Gemini 2.5 Flash** | Multimodal AI for e-waste image identification and conversational Q&A |
+| **Google Maps JavaScript API** | Interactive map rendering with user geolocation and recycling center markers |
+
+# Supporting Tools & Libraries
+
+| Technology | Purpose |
+|---|---|
+| **React 19 + TypeScript** | Frontend framework with static typing for a type-safe single-page application |
+| **Vite** | Frontend build tool with fast hot module replacement during development |
+| **Tailwind CSS** | Utility-first CSS framework for rapid UI styling |
+| **React Router v7** | Client-side routing and protected role-based navigation |
+| **qrcode.react** | QR code generation for recycling transactions |
+| **html5-qrcode** | In-browser QR code scanning for recycling center staff |
+| **EmailJS** | Client-side email notifications for pickup confirmations |
+| **Vercel** | Frontend deployment and global CDN hosting |
