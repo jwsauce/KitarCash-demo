@@ -45,25 +45,22 @@ KitarCash is an AI-driven logistics and incentive platform that functions as a "
 
 ### 4. Key Features
 
-⚠️ Hazard Awareness System
-Hazardous items flagged by Gemini AI trigger in-app warnings and a data safety guide, educating users on safe handling before disposal.
+🤖 AI-Powered E-Waste Identification:
+Upload a photo of any e-waste item and Google Gemini 2.5 Flash instantly identifies it, estimates its recycling value in Ringgit Malaysia, flags any hazards and provides environmental impact notes. The chatbot also supports conversational Q&A for recycling-related queries.
 
-🤖 AI-Powered E-Waste Identification
-Upload a photo of any e-waste item and Google Gemini 2.5 Flash instantly identifies it, estimates its recycling value in Ringgit Malaysia, flags any hazards, and provides environmental impact notes. The chatbot also supports conversational Q&A for recycling-related queries.
+🗺️ Interactive Center Map:
+Google Maps displays nearby recycling centers relative to the user's live location and calculate distances between them.
 
-🗺️ Interactive Center Map
-Google Maps displays nearby recycling centers relative to the user's live location, with distances calculated client-side using the Haversine formula.
+🚚 Community Pickup Pooling:
+Users can schedule a pickup instead of visiting a center. The pooling algorithm groups nearby requests within a two-kilometre radius and dispatches a single driver once the minimum quantity threshold is met.
 
-🚚 Community Pickup Pooling
-Users can schedule a pickup instead of visiting a center. The pooling algorithm groups nearby requests within a two-kilometre radius and dispatches a single driver once the minimum quantity threshold is met, making collection free through economies of scale.
-
-💰 Real-Time Digital Wallet
+💰 Real-Time Digital Wallet:
 Wallet credits are issued the instant center staff verify an item. An atomic Cloud Function ensures payment and verification occur together or not at all, preventing any possibility of fraud or double-crediting.
 
-📱 QR Code Transaction System
-Every recycling transaction generates a unique QR code, creating a verifiable link between the user's submission and the recycling center's physical verification — eliminating manual paperwork entirely.
+📱 QR Code Transaction System:
+Every recycling transaction generates a unique QR code, creating a verifiable link between the user's submission and the recycling center's physical verification. All transactions data are stored in cloud database.
 
-🔒 Role-Based Access Control
+🔒 Role-Based Access Control:
 Four user roles — recycler, recycling center staff, driver, and admin — each with dedicated dashboards. Roles are embedded in Firebase JWT tokens server-side, preventing any possibility of self-assigned elevated permissions.
 
 ### 5. Technologies Used
