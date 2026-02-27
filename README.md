@@ -19,6 +19,14 @@ View your app in AI Studio: https://ai.studio/apps/drive/1kXxkmwuRq9vG6Hiy8E7mGS
 3. Run the app:
    `npm run dev`   
 ---
+## Team Overview
+
+### Members
+1. Chia Chin Tian
+2. Chong Jin Wei
+3. Tan Sher Yi
+4. Yew Tien Sze
+---
 
 ## 📁 Repository Overview
 
