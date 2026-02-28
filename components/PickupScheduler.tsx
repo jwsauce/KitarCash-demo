@@ -146,7 +146,6 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
       },
       (err) => {
         console.warn("Geolocation denied or unavailable:", err.message);
-        // Fall back to a default location (Kuala Lumpur center)
         setUserLocation({ lat: 3.1390, lng: 101.6869 });
       }
     );
@@ -154,7 +153,7 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
 
   // Load active pickup request on mount (restores state after tab switch)
   useEffect(() => {
-    if (!user || currentRequestId) return; // skip if already tracking a request
+    if (!user || currentRequestId) return;
 
     const loadActiveRequest = async () => {
       try {
@@ -250,13 +249,12 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
           // Small delay to ensure Firestore has synced the just-saved request
           await new Promise(resolve => setTimeout(resolve, 1000));
 
-          const submittedQty = Number((form.quantity as any).value);
-          console.log('📦 Submitted quantity:', submittedQty);
-          const nearbyCount = await countNearbyRequests(lat, lng, submittedQty);
-          console.log('📊 Nearby count result:', nearbyCount, '(threshold: 5)');
+          // Count total item quantity within 2km radius
+          const totalNearbyQty = await countNearbyRequests(lat, lng);
+          console.log('📊 Total nearby item quantity:', totalNearbyQty, '(threshold: 5)');
 
-          if (nearbyCount >= 5) {
-            console.log('🎯 Pooling threshold met! Running pooling algorithm...');
+          if (totalNearbyQty >= 5) {
+            console.log('🎯 Quantity threshold met! Running pooling algorithm...');
             const { pooledIds, userIds } = await runPoolingAlgorithm(lat, lng);
             console.log('🤝 Pooling result:', { pooledIds, userIds });
 
@@ -304,7 +302,7 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
     setIsCancelling(true);
     try {
       await cancelPickupRequest(currentRequestId);
-      setPoolStatus('cancelled');        // ← Explicitly set status before clearing ID
+      setPoolStatus('cancelled');
       setCurrentRequestId(null);
       setShowCancelConfirm(false);
     } catch (err) {
@@ -316,11 +314,9 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
 
   const handleSendManually = () => {
     if (!identifiedItem) {
-      // No item identified — just show recycling centers list
       setOption('manual');
       return;
     }
-    // Show confirmation modal before creating transaction
     setShowManualConfirm(true);
   };
 
@@ -347,10 +343,8 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
 
   const handleCancelManualSend = () => {
     setShowManualConfirm(false);
-    setOption('manual'); // Show recycling centers list
+    setOption('manual');
   };
-
-
 
   return (
     <>
@@ -496,71 +490,47 @@ const PickupScheduler: React.FC<PickupSchedulerProps> = ({ identifiedItem, initi
               {/* Form — shown when idle */}
               {poolStatus === 'idle' && (
                 <form onSubmit={handleSchedulePickup} className="space-y-4">
+                  {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
                   <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-600">Address</label>
-                    <input type="text" id="address" name="address" required
-                      className="w-full mt-1 bg-white text-gray-800 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                      placeholder="123, Jalan Hijau, Kuala Lumpur" />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Address</label>
+                    <input name="address" type="text" required placeholder="Enter your full address"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
                   </div>
                   <div>
-                    <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-600">Contact Number</label>
-                    <input type="tel" id="contactNumber" name="contactNumber" required
-                      className="w-full mt-1 bg-white text-gray-800 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                      placeholder="e.g. 012-3456789" />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                    <input name="contactNumber" type="tel" required placeholder="e.g. 012-3456789"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
                   </div>
                   <div>
-                    <label htmlFor="item" className="block text-sm font-medium text-gray-600">Item</label>
-                    <input type="text" id="item" name="item" defaultValue={identifiedItem?.itemName || ''} required
-                      className="w-full mt-1 bg-white text-gray-800 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Item Type</label>
+                    <input name="item" type="text" required
+                      defaultValue={identifiedItem?.itemName || ''}
+                      placeholder="e.g. Laptop, Phone, TV"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
                   </div>
                   <div>
-                    <label htmlFor="quantity" className="block text-sm font-medium text-gray-600">Quantity</label>
-                    <input type="number" id="quantity" name="quantity" defaultValue={1} min="1" required
-                      className="w-full mt-1 bg-white text-gray-800 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                    <input name="quantity" type="number" required min="1" defaultValue="1"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
                   </div>
                   <div>
-                    <label htmlFor="addOn" className="block text-sm font-medium text-gray-600">Add On (optional)</label>
-                    <input type="text" id="addOn" name="addOn"
-                      className="w-full mt-1 bg-white text-gray-800 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                      placeholder="e.g. fragile, needs special handling" />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Add-on Notes (optional)</label>
+                    <textarea name="addOn" rows={2} placeholder="Any special instructions..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
                   </div>
-
-                  {error && <p className="text-red-500 text-sm">{error}</p>}
-
-                  <button type="submit" disabled={isSubmitting}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-500">
-                    {isSubmitting ? 'Submitting...' : 'Join Pickup Pool'}
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit Pickup Request'}
                   </button>
                 </form>
               )}
-            </div>
-          )}
-
-          {/* Pickup History */}
-          {pickupHistory.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-lg font-bold text-green-700 mb-3">📦 Pickup History</h3>
-              <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-2">
-                {pickupHistory.map((req) => (
-                  <div key={req.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-sm text-gray-800">{req.item}</p>
-                      <p className="text-xs text-gray-500">{req.address}</p>
-                      <p className="text-xs text-gray-400">
-                        {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : 'N/A'}
-                      </p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${req.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      req.status === 'cancelled' ? 'bg-red-100 text-red-600' :
-                        req.status === 'assigned' ? 'bg-purple-100 text-purple-700' :
-                          req.status === 'pooled' ? 'bg-blue-100 text-blue-700' :
-                            'bg-yellow-100 text-yellow-700'
-                      }`}>
-                      {req.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </div>

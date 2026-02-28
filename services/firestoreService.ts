@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, updateDoc, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, updateDoc, doc, getDoc, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { PickupRequest } from "../types";
 import { getDistanceKm } from './geoUtils';
@@ -16,16 +16,19 @@ export const fetchPickupRequests = async (): Promise<PickupRequest[]> => {
   })) as PickupRequest[];
 };
 
-export const countNearbyRequests = async (lat: number, lng: number, includeQuantity: number = 0): Promise<number> => {
+// Sums total item quantity within 2km radius (waiting + pooled requests)
+export const countNearbyRequests = async (lat: number, lng: number): Promise<number> => {
   const all = await fetchPickupRequests();
-  const nearbyTotal = all
-    .filter((r) => r.status === 'waiting' && getDistanceKm(lat, lng, r.lat, r.lng) <= 2)
-    .reduce((sum, r) => sum + (r.quantity || 1), 0);
-  // includeQuantity ensures the just-submitted request is counted
-  // even if Firestore hasn't synced the query yet
-  return Math.max(nearbyTotal, includeQuantity);
-};
 
+  const totalQuantity = all
+    .filter((r) =>
+      (r.status === 'waiting' || r.status === 'pooled') &&
+      getDistanceKm(lat, lng, r.lat, r.lng) <= 2
+    )
+    .reduce((sum, r) => sum + (r.quantity || 1), 0);
+
+  return totalQuantity;
+};
 
 export const runPoolingAlgorithm = async (lat: number, lng: number): Promise<{ pooledIds: string[]; userIds: string[] }> => {
   const all = await fetchPickupRequests();
