@@ -231,14 +231,16 @@ Able to accept pickup request, navigate to user's location, collect e-waste and 
 A QR scanner via `html5-qrcode` to scan QR generated on the user's dashboard, corresponding to a transaction ID.  
 
 Able to verify the e-waste item and credit user's wallet atomically.
+### Note: Admin Dashboard
+Although admin is also one of our targeted user, we haven't develop the UI for admin dashboard yet. For now, it will remain as a scaffold. Admin can only promote user’s role to driver or recycling_center by running the utility script in `scripts/assignCenters.ts`
 
 
 ## API Layer
 The frontend communicates with three external APIs:
 ### 1. ✨ Gemini API
-It is used for image recognition and chatbot. The model used is gemini-2.5-flash via @google/genai SDK. It is optimized for speed and cost while retaining strong multimodal capabilities. This means that it returns a near-instant response. When a user uploads a photo, gemini returns a structured output JSON matching the EWasteItem schema (name, category, estimated RM value, hazard flag), and user will be able to identify what the e-waste is, quickly. The structured output JSON will also connect to Firebase backend, and can be used when createTransaction cloud function was called. When a user asks Gemini questions about e-waste, it acts as an e-waste expert assistant. 
+It is used for image recognition and chatbot. The model used is gemini-2.5-flash via @google/genai SDK. It is optimized for speed and cost while retaining strong multimodal capabilities. This means that it returns a near-instant response. When a user uploads a photo, gemini returns a structured output JSON matching the EWasteItem schema (name, category, estimated RM value, hazard flag), and user will be able to identify what the e-waste is, quickly. The structured output JSON will also connect to Firebase backend, and can be used when `createTransaction` cloud function was called. When a user asks Gemini questions about e-waste, it acts as an e-waste expert assistant. 
 ### 2. 🗺️ Google Maps JavaScript API
-It is used for interactive map, determining user's position via browser-based Geolocation API, calculating distance between user and center via geoUtils.ts , get drivers a direct "Navigate" link to navigate to user's pickup location, and sort centers by proximity so the closest option will be shown to the user first. When user opens the "Pickup" page, this API is called to locate user's current location.
+It is used for interactive map, determining user's position via browser-based Geolocation API, calculating distance between user and center via `geoUtils.ts` , get drivers a direct "Navigate" link to navigate to user's pickup location, and sort centers by proximity so the closest option will be shown to the user first. When user opens the "Pickup" page, this API is called to locate user's current location.
 ### 3. 📧 EmailJS
 It is used to send pickup confirmation emails to users when a driver is assigned. User will not only get notify on our website, but also their e-mail.
 
@@ -248,14 +250,14 @@ The backend is serverless and all the server-side logic runs as Firebase Cloud F
 ### 1. Cloud Functions:
 Everytime when the frontend performs some sort of actions such as creating a transaction, it calls these cloud functions on the server side as these functions validate the caller's role, enforce business rules (e.g., only `qr_generated` transactions can be cancelled), and perform atomic Firestore operations. The frontend never writes directly to critical collections.
 ### 2. Firestore Database 
-We store our core collections inside Firebase NoSQL database. It provides real-time sync as the frontend uses onSnapshot listeners on pickupRequests and transactions, so status changes appear instantly across all connected dashboards. For example, when a center scans QR, verifies and credits a user, the user's wallet updates instantly without refreshing.
+We store our core collections inside Firebase NoSQL database. It provides real-time sync as the frontend uses `onSnapshot` listeners on `pickupRequests` and `transactions`, so status changes appear instantly across all connected dashboards. For example, when a center scans QR, verifies and credits a user, the user's wallet updates instantly without refreshing.
 ### 3. Firebase Storage
 It is used for e-waste image uploads in the "Chatbot" page. Images are stored under user-scoped paths `chat-uploads/{userUID}/{timestamp}-{filename}` with:
-File validation: JPEG, PNG, WebP only, max 5 MB
-Upload progress tracking via uploadBytesResumable
-Secure download URLs returned after upload completes
+- File validation: JPEG, PNG, WebP only, max 5 MB
+- Upload progress tracking via uploadBytesResumable
+- Secure download URLs returned after upload completes
 ### 4. Firebase Authentication 
-It is used for email/password sign-up and login, session management, JWT tokens with custom role claims (user, driver, recycle_centers, admin).
+It is used for email/password sign-up and login, session management, JWT tokens with custom role claims (`user`, `driver`, `recycle_centers`, `admin`).
 ### 5. Firestore Rules (Security Model)
 Firestore rules enforce that the transactions collection has allow write: if false — meaning no client can create or modify transactions directly. All writes go through Cloud Functions, which validate the caller's role, check transaction status, and use Firestore transactions for atomicity. This prevents double-crediting, transaction spoofing, and unauthorized access.
 
@@ -266,7 +268,6 @@ This is the complete flow from a user side of perspective. This workflow also sh
 
 ### 1. 📋 Sign Up/Login 
 When a user signs up to a new account, Firebase Auth creates the account, cloud function `setDefaultRole` stamps a `user` role as a custom claim on the JWT token. New signup user now has a document under the `user` collection in Firestore. User lands on User Dashboard, which accesses our solution's features: Scan, Pickup, Wallet.  
-Note that our admin dashboard was not setted up for this demo. For now, promoting user’s role to driver or recycling_center will be conducted via running the utility script in `scripts/assignCenters.ts`
 ### 2. 🤖 "Scan & Identify" AI Chatbot
 Users can now upload e-waste photos to the chatbot. The image is sent to Gemini 2.5 Flash with a structured schema prompt. Gemini then returns structured JSON output with item name, category, estimated RM value, hazard flag, and environmental impact note. Next, it will prompt users to choose "Send Manually", "Schedule Pickup" or "Just Asking". 
 ### 3. 🗺️ Choose Disposal Path
@@ -346,6 +347,25 @@ For the system to function, sensitive keys must be stored as environment variabl
 | **VITE_EMAILJS_SERVICE_ID** |  EmailJS service ID linked to the email provider. |
 | **VITE_EMAILJS_TEMPLATE_ID** |  Used for pickup confirmation email format. |
 | **VITE_EMAILJS_PUBLIC_KEY** |  Used for sending pickup confirmation emails. |
+
+### 5. Preset roles for Driver & Recycling Center
+Feel free to play around with the driver & recycling center's dashboard via these predefined email accounts and passwords:
+
+**Driver**
+
+Account: driverahming@kitarcash.com
+Password: 123456
+
+**Center**
+
+Account: ipc@kitarcash.com
+Password: 123456
+
+Account: kanvas_retail@kitarcash.com
+Password: 123456
+
+Account: tzu_chi@kitarcash.com
+Password: 123456
 
 ---
 
