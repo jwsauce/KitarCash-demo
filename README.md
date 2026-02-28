@@ -1,5 +1,7 @@
 ## 👥Team Introduction
 
+<img width="1920" height="1080" alt="Intro" src="https://github.com/user-attachments/assets/8d8ab0bf-1e59-48ad-b6db-ae33f7b5040b" />
+
 ### Team Name: HayDay HeyHey
 ### Project Name: KitarCash
 ### Members
@@ -7,7 +9,9 @@
 2. Chong Jin Wei
 3. Tan Sher Yi
 4. Yew Tien Sze
+
 ---
+
 
 ## 📁 Repository Overview
 
@@ -122,15 +126,16 @@ Firestore Database
 
 ---
 
+
 ## Project Overview: KitarCash
 
-### 1. Problem Statement
+### 1. ❓ Problem Statement
 
 Malaysia is currently facing a critical "E-Waste Paradox" where high public awareness fails to translate into effective action, causing both environmental degradation and economic instability. This crisis reached a breaking point with the enactment of the Absolute Prohibition on e-waste imports on February 4, 2026. With this enactment, all foreign feedstock has been cut off entirely, meaning Malaysia’s 157+ licensed recovery facilities must now rely solely on e-waste generated within Malaysia to survive.
 
 However, the current system is fundamentally broken. When a citizen wants to recycle, they are forced into a complicated and inconvenient process: they must manually research their device types, find a registered collection center, and travel there themselves—often without knowing if they will receive any incentives for their effort. This lack of motivation and high logistical friction results in millions of devices being thrown away, even though Malaysia is estimated to generate 24.5 million units of e-waste in 2025 alone.
 
-### 2. SDG Alignment
+### 2. 🌏 SDG Alignment
 
 Our solution is strategically mapped to three United Nations Sustainable Development Goals:
 
@@ -140,11 +145,12 @@ SDG 9 (Industry, Innovation, & Infrastructure) - Target 9.4: We provide the digi
 
 SDG 11 (Sustainable Cities & Communities) - Target 11.6: We reduce the environmental impact of Malaysian cities by optimizing municipal waste management through an automated collection model.
 
-### 3. Short Description of the Solution
+### 3. 💡 Short Description of the Solution
 
 KitarCash is an AI-driven logistics and incentive platform that functions as a "digital middleman" to bridge the gap in Malaysia's e-waste supply chain. Our system automates the connection between households and licensed recovery centers by providing a seamless doorstep pickup service and instant Cashback rewards. By using a smart pooling system, we transform scattered household waste into profitable industrial feedstock. Additionally, we utilize Gemini AI to guide users through secure data-wiping, ensuring that personal privacy is protected while diverting toxic chemicals from landfills into professional recycling channels.
 
 ---
+
 
 ## Key Features
 
@@ -167,6 +173,7 @@ Every recycling transaction generates a unique QR code, creating a verifiable li
 Four user roles — recycler, recycling center staff, driver, and admin — each with dedicated dashboards. Roles are embedded in Firebase JWT tokens server-side, preventing any possibility of self-assigned elevated permissions.
 
 ---
+
 
 ## Overview and Technologies Used
 
@@ -196,33 +203,35 @@ Four user roles — recycler, recycling center staff, driver, and admin — each
 
 ---
 
+
 ## Implementation Details & Innovation:
 
 ## System architecture
-<img width="1920" height="1080" alt="PROLEM STATEMENT" src="https://github.com/user-attachments/assets/ce1f48de-079f-47e4-bd34-ec3919e9e0be" />
+<img width="1920" height="1080" alt="PROLEM STATEMENT" src="https://github.com/user-attachments/assets/a86183ec-f41f-48a6-b63e-42b610782c66" />
 
-KitarCash uses a serverless architecture with a React frontend deployed on Vercel, connected to Firebase/Google Cloud backend services and external APIs
 
-### Frontend
-Our frontend shows a single page application built with React 19, TypeScript, TailwindCSS, and Vite, deployed on Vercel. React 19 with TypeScript provides type-safe components and IDE autocompletion across our data models. TailwindCSS was used to rapidly prototype custom user interface with the utility-first approach. Vite provides fast hot-reload during development and optimized production builds. We deployed our website on Vercel as it is optimized for high-performance frontend hosting.  It gives us automatic deployments on every git push with zero configuration, we basically just connected our GitHub repo and it auto-detected our Vite setup. This lets us iterate rapidly during development.
+KitarCash uses a serverless architecture with a React frontend deployed on Vercel, connected to Firebase/Google Cloud backend services and external APIs  
 
-Our targeted user will be regular users, driver, and recycling centers. Therefore, our web app consist of three different dashboard based on the user's role: regular users, drivers, and recycling center staff, with different features and functionalities:
+## Frontend
+Our frontend shows a single page application built with React 19, TypeScript, TailwindCSS, and Vite, deployed on Vercel. React 19 with TypeScript provides type-safe components and IDE autocompletion across our data models. TailwindCSS was used to rapidly prototype custom user interface with the utility-first approach. Vite provides fast hot-reload during development and optimized production builds. We deployed our website on Vercel as it is optimized for high-performance frontend hosting.  It gives us automatic deployments on every git push with zero configuration, we basically just connected our GitHub repo and it auto-detected our Vite setup. This lets us iterate rapidly during development.  
+
+Our targeted user will be regular users, driver, and recycling centers. Therefore, our web app consist of three different dashboard based on the user's role: regular users, drivers, and recycling center staff, with different features and functionalities:  
 ### 1. 👤 User Dashboard
-Consist of all the main features such as:
-- AI-powered E-Waste Chatbot
-- Interactive Center Map showcasing user's current location and nearby recycling centers
-- Schedule Pickup Form for users to submit e-waste pickup request
-- QR code generate via qrcode.react to generate QR code for e-waste transactions
-- Real-Time Digital Wallet that updates when a transaction is verified and credited
+Consist of all the main features such as:  
+- AI-powered E-Waste Chatbot  
+- Interactive Center Map showcasing user's current location and nearby recycling centers  
+- Schedule Pickup Form for users to submit e-waste pickup request  
+- QR code generate via qrcode.react to generate QR code for e-waste transactions  
+- Real-Time Digital Wallet that updates when a transaction is verified and credited  
 ### 2. 🚗 Driver Dashboard
 Able to see all pickup request that is accepted after the pooling. 
-Able to accept pickup request, navigate to user's location, collect e-waste and send it to recycling centers.
+Able to accept pickup request, navigate to user's location, collect e-waste and send it to recycling centers.  
 ### 3. 🏭 Recycling Center Dashboard
-A QR scanner via html5-qrcode to scan QR generated on the user's dashboard, corresponding to a transaction ID.
+A QR scanner via html5-qrcode to scan QR generated on the user's dashboard, corresponding to a transaction ID.  
 Able to verify the e-waste item and credit user's wallet atomically.
 
 
-### API Layer
+## API Layer
 The frontend communicates with three external APIs:
 ### 1. ✨ Gemini API
 It is used for image recognition and chatbot. The model used is gemini-2.5-flash via @google/genai SDK. It is optimized for speed and cost while retaining strong multimodal capabilities. This means that it returns a near-instant response. When a user uploads a photo, gemini returns a structured output JSON matching the EWasteItem schema (name, category, estimated RM value, hazard flag), and user will be able to identify what the e-waste is, quickly. The structured output JSON will also connect to Firebase backend, and can be used when createTransaction cloud function was called. When a user asks Gemini questions about e-waste, it acts as an e-waste expert assistant. 
@@ -232,10 +241,10 @@ It is used for interactive map, determining user's position via browser-based Ge
 It is used to send pickup confirmation emails to users when a driver is assigned. User will not only get notify on our website, but also their e-mail.
 
 
-### Backend/Database
+## Backend/Database
 The backend is serverless and all the server-side logic runs as Firebase Cloud Functions as it has zero infrastructure management, Admin SDK access, and atomic Firestore Transactions. Some Firebase products that we use are:
 ### 1. Cloud Functions:
-Everytime when the frontend performs some sort of actions such as creating a transaction, it calls these cloud functions on the server side as these functions validate the caller's role, enforce business rules (e.g., only qr_generated transactions can be cancelled), and perform atomic Firestore operations. The frontend never writes directly to critical collections.
+Everytime when the frontend performs some sort of actions such as creating a transaction, it calls these cloud functions on the server side as these functions validate the caller's role, enforce business rules (e.g., only `qr_generated` transactions can be cancelled), and perform atomic Firestore operations. The frontend never writes directly to critical collections.
 ### 2. Firestore Database 
 We store our core collections inside Firebase NoSQL database. It provides real-time sync as the frontend uses onSnapshot listeners on pickupRequests and transactions, so status changes appear instantly across all connected dashboards. For example, when a center scans QR, verifies and credits a user, the user's wallet updates instantly without refreshing.
 ### 3. Firebase Storage
@@ -248,55 +257,96 @@ It is used for email/password sign-up and login, session management, JWT tokens 
 ### 5. Firestore Rules (Security Model)
 Firestore rules enforce that the transactions collection has allow write: if false — meaning no client can create or modify transactions directly. All writes go through Cloud Functions, which validate the caller's role, check transaction status, and use Firestore transactions for atomicity. This prevents double-crediting, transaction spoofing, and unauthorized access.
 
+---
 
-### Workflow
+## Workflow
 This is the complete flow from a user side of perspective. This workflow also shows how driver and centers are linked to the user.
 
 ### 1. 📋 Sign Up/Login 
-When a user signs up to a new account, Firebase Auth creates the account, cloud function `setDefaultRole` stamps a `user` role as a custom claim on the JWT token. New signup user now has a document under the `user` collection in Firestore. User lands on User Dashboard, which accesses our solution's features: Scan, Pickup, Wallet.
+When a user signs up to a new account, Firebase Auth creates the account, cloud function `setDefaultRole` stamps a `user` role as a custom claim on the JWT token. New signup user now has a document under the `user` collection in Firestore. User lands on User Dashboard, which accesses our solution's features: Scan, Pickup, Wallet.  
 Note that our admin dashboard was not setted up for this demo. For now, promoting user’s role to driver or recycling_center will be conducted via running the utility script in `scripts/assignCenters.ts`
 ### 2. 🤖 "Scan & Identify" AI Chatbot
 Users can now upload e-waste photos to the chatbot. The image is sent to Gemini 2.5 Flash with a structured schema prompt. Gemini then returns structured JSON output with item name, category, estimated RM value, hazard flag, and environmental impact note. Next, it will prompt users to choose "Send Manually", "Schedule Pickup" or "Just Asking". 
 ### 3. 🗺️ Choose Disposal Path
-If the user chooses "Send Manually", the user will be redirected to the "Pickup" page, showing nearby recycling centers and can navigate to there with a link redirecting them to Google Maps. Cloud function `createTransaction` will create a transaction ID, which is then encoded into a QR generated on the Wallet page.
-If the user chooses "Schedule Pickup", it will prompt the user to fill in address, contact number, and item details. The pooling algorithm checks if there's >= 5 items that exist within a 2km radius. If so, requests are grouped into a pool. 
-On the driver’s dashboard, drivers see pooled tasks in their `/driver-dashboard` and can accept them. After the driver accepts, it navigates to the user's pickup location, collects the item, and sends it to the recycling center. Note that our demo code only demonstrates until the part where driver completes the pickup request, but there's no actual link of the driver and the recycling center, for now.
+If the user chooses "Send Manually", the user will be redirected to the "Pickup" page, showing nearby recycling centers and can navigate to there with a link redirecting them to Google Maps. Cloud function `createTransaction` will create a transaction ID, which is then encoded into a QR generated on the Wallet page.  
+
+If the user chooses "Schedule Pickup", it will prompt the user to fill in address, contact number, and item details. The pooling algorithm checks if there's >= 5 items that exist within a 2km radius. If so, requests are grouped into a pool.   
+
+On the driver’s dashboard, drivers see pooled tasks in their `/driver-dashboard` and can accept them. After the driver accepts, it navigates to the user's pickup location, collects the item, and sends it to the recycling center. Note that our demo code only demonstrates until the part where driver completes the pickup request, but there's no actual link of the driver and the recycling center, for now.  
 ### 4. ✅ Verification
-At the recycling center, center staff can access the `/center-dashboard`, scans the QR using html5-qrcode. The cloud function `verifyAndCredit` runs inside a Firestore transaction to atomically update the transaction status and credit the user's wallet.
-### 5. Wallet
+At the recycling center, center staff can access the `/center-dashboard`, scans the QR using `html5-qrcode`. The cloud function `verifyAndCredit` runs inside a Firestore transaction to atomically update the transaction status and credit the user's wallet.
+### 5. 💰 Wallet
 Users see their live wallet and full transaction history via real-time `onSnapshot` listeners.
+
+---
+
+## Challenges Faced
+
+### 1. 👻 "Ghost" transaction on the user's transaction history
+A significant technical challenge that we had faced was preventing "ghost" transaction records on the user's dashboard. Our initial data flow was: User uses chatbot to identify items at "Identify" page, press "Send Manually" button, redirect user to "Pickup" page, then it creates a transaction record at Firestore using the cloud function createTransaction. 
+
+However, during testing, we noticed the Wallet page was filled with transaction records that had no corresponding real drop-offs. This is because users could just spam the "Send Manually" button and there's no guard preventing repeated clicks. This creates a lot of unnecessary "ghost" transaction records that users couldn't cancel and it really makes the "Wallet" page confusing and unreliable.
+
+At first, we thought of rewriting the entire data flow to only create a transaction after the drop-off was confirmed at the pickup location. But we soon realised it would require us a lot of technical debt on verifying how the user is already at the recycling center. This would have required us to restructure multiple pages and Cloud Functions, which was too time consuming.
+
+Therefore, our team decided to implement a "guard" before the cloud function was called.
+
+1. We added a **"Confirmation Modal"** on top of the "Send Manually" button. Every time when a user clicks the "Send Manually" button, the confirmation modal would pop up and ask the user if they really wanted to drop off e-waste items, or if they're just wandering around the website.
+  
+2. We also added a **"Cancel"** button on all transactions with the status "Awaiting Verification", so users can easily cancel the transactions that haven't been verified.
+
+With this implementation of adding a confirmation modal and "cancel" button, "ghost" transactions were eliminated during our subsequent testing. The "Wallet" page became cleaner and users have full control over their pending transaction. This also reduced the unnecessary Firestore writes and writes Cloud Function calling.
+
+
+### 2. 🚗 Developing the full pickup life cycle
+
+A fully complete and secure pickup cycle would require a lot of different verification methods on the driver and recycling center side such as OTP and QR verification. That involves a lot of security considerations and problems such as how does the driver verify the pickup with the user? How does the driver know which recycling center to send to? How does the center verify the item sent by the driver is from which user? And many more. It was quite overwhelming for us to develop the full pickup cycle within the timeline. 
+
+Therefore, we shifted from "developing the full cycle" to **"showing our demo works for this pickup feature"**. In our demo, we only showcase the status where the user submits the pickup form, waits for pooling, pooling success, and driver accepts a collection task. It was easier to set up as it only requires communication between the user and the driver. The part of the driver sending the item to the recycling center was not implemented yet. 
+
+We did reserved fields in our `createTransaction` Cloud Function (`optCode`, `pickupStatus`) for future expansion. OTP verification, complex algorithm, and full cycle could be added in the future. With this approach, we are able to put more time and energy into other parts of our solution that also requires our attention, within the deadline. 
 
 ---
 
 ## Installation & Setup
 
 ### 1. Environment Requirements
-The project uses a modern, type-safe development stack:
-Frontend: React 19+ with TypeScript, using Vite as the build tool.
-Styling: Tailwind CSS (utility-first).
-Backend: Firebase Cloud Functions v2 (serverless environment).
-Database: Cloud Firestore (NoSQL).
+The project uses a modern, type-safe development stack:  
+Frontend: React 19+ with TypeScript, using Vite as the build tool.  
+Styling: Tailwind CSS (utility-first).  
+Backend: Firebase Cloud Functions v2 (serverless environment).  
+Database: Cloud Firestore (NoSQL).  
 
 ### 2. Frontend InstallationClone and Install: 
-Clone the repository and navigate to the root folder (where package.json is located). 
-Run npm install to download all frontend dependencies, including React, TypeScript, and the Google Generative AI SDK.
-Initialize Firebase: The firebase.ts file must be configured to initialize the Firebase SDK, including Authentication, Firestore, and Storage.
-Local Execution: Start the development server using the Vite dev command (typically npm run dev).
+Clone the repository and navigate to the root folder (where `package.json` is located).  
+Run `npm install` to download all frontend dependencies, including React, TypeScript, and the Google Generative AI SDK.  
+Initialize Firebase: The `firebase.ts` file must be configured to initialize the Firebase SDK, including Authentication, Firestore, and Storage.  
+Local Execution: Start the development server using the Vite dev command (typically `npm run dev`).  
 
 ### 3. Backend & Cloud Functions Setup
-The backend lives in the functions/ directory and must be deployed to Google Cloud.
-Install Backend Dependencies: Navigate to the functions/ folder and run npm install to install firebase-admin and firebase-functions.Deploy Functions: Use the Firebase CLI to push the five core server-side functions (setUserRole, setDefaultRole, createTransaction, cancelTransaction, and verifyAndCredit):
-Security Rules: Deploy the firestore.rules file to define who can read and write to the database collections.
+The backend lives in the functions/ directory and must be deployed to Google Cloud.  
+Install Backend Dependencies: Navigate to the `functions/` folder and run `npm install` to install `firebase-admin` and `firebase-functions`.  
+Deploy Functions: Use the Firebase CLI to push the five core server-side functions (`setUserRol`e, `setDefaultRole`, `createTransaction`, `cancelTransaction`, and `verifyAndCredit`):  
+Security Rules: Deploy the firestore.rules file to define who can read and write to the database collections.  
 
 ### 4. Environment Variables & API Key
 For the system to function, sensitive keys must be stored as environment variables (typically in the hosting platform's settings, such as Vercel). The following keys are required:
-VITE_GEMINI_API_KEY :Authenticates with Google Gemini AI for e-waste analysis.
-VITE_FIREBASE_API_KEYI:dentifies the Firebase project.
-VITE_FIREBASE_AUTH_DOMAIN:Firebase Authentication domain.
-VITE_FIREBASE_PROJECT_ID:Unique Firebase project identifier.
-VITE_EMAILJS_PUBLIC_KEY:Used for sending pickup confirmation emails.
+
+| Variable | Description |
+|---|---|
+| **VITE_GEMINI_API_KEY** |  Authenticates with Google Gemini AI for e-waste analysis. |
+| **VITE_FIREBASE_API_KEY** |  Identifies the Firebase project. |
+| **VITE_FIREBASE_AUTH_DOMAIN** |  Firebase Authentication domain. |
+| **VITE_FIREBASE_PROJECT_ID** |  Unique Firebase project identifier. |
+| **VITE_FIREBASE_STORAGE_BUCKET** |  Firebase Storage bucket URL for e-waste image uploads. |
+| **VITE_FIREBASE_MESSAGING_SENDER_ID** |  Firebase Cloud Messaging sender ID for project identification. |
+| **VITE_FIREBASE_APP_ID** |  Unique identifier for the Firebase web app instance |
+| **VITE_EMAILJS_SERVICE_ID** |  EmailJS service ID linked to the email provider. |
+| **VITE_EMAILJS_TEMPLATE_ID** |  Used for pickup confirmation email format. |
+| **VITE_EMAILJS_PUBLIC_KEY** |  Used for sending pickup confirmation emails. |
 
 ---
+
 
 ## 🗺️ Future Roadmap
 
