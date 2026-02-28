@@ -64,7 +64,7 @@ KitarCash-demo/
 │   └── mockData.ts                  ← Sample recycling centers for development
 │
 ├── 📂 scripts/                      ← Utility scripts
-│   └── assignCenters.ts             ← Helper to seed recycling centers into Firestore
+│   └── assignRoles.ts             ← Helper to seed recycling centers or drivers into Firestore
 │
 ├── 📂 functions/                    ← BACKEND — Firebase Cloud Functions (server-side)
 │   ├── src/
@@ -232,7 +232,7 @@ A QR scanner via `html5-qrcode` to scan QR generated on the user's dashboard, co
 
 Able to verify the e-waste item and credit user's wallet atomically.
 ### Note: Admin Dashboard
-Although admin is also one of our targeted user, we haven't develop the UI for admin dashboard yet. For now, it will remain as a scaffold. Admin can only promote user’s role to driver or recycling_center by running the utility script in `scripts/assignCenters.ts`
+Although admin is also one of our targeted user, we haven't develop the UI for admin dashboard yet. For now, it will remain as a scaffold. Admin can only promote user’s role to driver or recycling_center by running the utility script in `scripts/assignRoles.ts`
 
 
 ## API Layer
