@@ -221,13 +221,15 @@ Consist of all the main features such as:
 - AI-powered E-Waste Chatbot  
 - Interactive Center Map showcasing user's current location and nearby recycling centers  
 - Schedule Pickup Form for users to submit e-waste pickup request  
-- QR code generate via qrcode.react to generate QR code for e-waste transactions  
+- QR code generate via `qrcode.react` to generate QR code for e-waste transactions  
 - Real-Time Digital Wallet that updates when a transaction is verified and credited  
 ### 2. 🚗 Driver Dashboard
 Able to see all pickup request that is accepted after the pooling. 
+
 Able to accept pickup request, navigate to user's location, collect e-waste and send it to recycling centers.  
 ### 3. 🏭 Recycling Center Dashboard
-A QR scanner via html5-qrcode to scan QR generated on the user's dashboard, corresponding to a transaction ID.  
+A QR scanner via `html5-qrcode` to scan QR generated on the user's dashboard, corresponding to a transaction ID.  
+
 Able to verify the e-waste item and credit user's wallet atomically.
 
 
@@ -317,7 +319,7 @@ Styling: Tailwind CSS (utility-first).
 Backend: Firebase Cloud Functions v2 (serverless environment).  
 Database: Cloud Firestore (NoSQL).  
 
-### 2. Frontend InstallationClone and Install: 
+### 2. Frontend Installation Clone and Install: 
 Clone the repository and navigate to the root folder (where `package.json` is located).  
 Run `npm install` to download all frontend dependencies, including React, TypeScript, and the Google Generative AI SDK.  
 Initialize Firebase: The `firebase.ts` file must be configured to initialize the Firebase SDK, including Authentication, Firestore, and Storage.  
