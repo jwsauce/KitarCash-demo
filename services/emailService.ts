@@ -1,5 +1,4 @@
 import emailjs from '@emailjs/browser';
-emailjs.init('lIvesV6xUOFkjEdcM');
 
 export const sendPickupConfirmation = async (
   toEmail: string,
@@ -22,9 +21,7 @@ export const sendPickupConfirmation = async (
         pickup_time: new Date(pickupTime).toLocaleString(),
         driver_name: driverName,
       },
-      {
-        publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, // 👈 pass as object
-      }
+      import.meta.env.VITE_EMAILJS_PUBLIC_KEY  // 👈 just pass the key directly
     );
     console.log("Email sent successfully:", result);
   } catch (err) {
