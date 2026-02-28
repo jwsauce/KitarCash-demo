@@ -1,4 +1,5 @@
 import emailjs from '@emailjs/browser';
+emailjs.init('lIvesV6xUOFkjEdcM');
 
 export const sendPickupConfirmation = async (
   toEmail: string,
