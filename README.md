@@ -166,29 +166,35 @@ SDG 11 (Sustainable Cities & Communities) - Target 11.6: We reduce the environme
 
 KitarCash is an AI-driven logistics and incentive platform that functions as a "digital middleman" to bridge the gap in Malaysia's e-waste supply chain. Our system automates the connection between households and licensed recovery centers by providing a seamless doorstep pickup service and instant Cashback rewards. By using a smart pooling system, we transform scattered household waste into profitable industrial feedstock. Additionally, we utilize Gemini AI to guide users through secure data-wiping, ensuring that personal privacy is protected while diverting toxic chemicals from landfills into professional recycling channels.
 
-### 4. Key Features
+---
 
-🤖 AI-Powered E-Waste Identification:
+
+## Key Features
+
+### 🤖 AI-Powered E-Waste Identification:
 Upload a photo of any e-waste item and Google Gemini 2.5 Flash instantly identifies it, estimates its recycling value in Ringgit Malaysia, flags any hazards and provides environmental impact notes. The chatbot also supports conversational Q&A for recycling-related queries.
 
-🗺️ Interactive Center Map:
+### 🗺️ Interactive Center Map:
 Google Maps displays nearby recycling centers relative to the user's live location and calculate distances between them.
 
-🚚 Community Pickup Pooling:
+### 🚚 Community Pickup Pooling:
 Users can schedule a pickup instead of visiting a center. The pooling algorithm groups nearby requests within a two-kilometre radius and dispatches a single driver once the minimum quantity threshold is met.
 
-💰 Real-Time Digital Wallet:
+### 💰 Real-Time Digital Wallet:
 Wallet credits are issued the instant center staff verify an item. An atomic Cloud Function ensures payment and verification occur together or not at all, preventing any possibility of fraud or double-crediting.
 
-📱 QR Code Transaction System:
+### 📱 QR Code Transaction System:
 Every recycling transaction generates a unique QR code, creating a verifiable link between the user's submission and the recycling center's physical verification. All transactions data are stored in cloud database.
 
-🔒 Role-Based Access Control:
+### 🔒 Role-Based Access Control:
 Four user roles — recycler, recycling center staff, driver, and admin — each with dedicated dashboards. Roles are embedded in Firebase JWT tokens server-side, preventing any possibility of self-assigned elevated permissions.
 
-### 5. Technologies Used
+---
 
-#### Google Technologies
+
+## Overview and Technologies Used
+
+### 1. Google Technologies
 
 | Technology | Purpose |
 |---|---|
@@ -199,7 +205,7 @@ Four user roles — recycler, recycling center staff, driver, and admin — each
 | **Google Gemini 2.5 Flash** | Multimodal AI for e-waste image identification and conversational Q&A |
 | **Google Maps JavaScript API** | Interactive map rendering with user geolocation and recycling center markers |
 
-#### Supporting Tools & Libraries
+### 2. Supporting Tools & Libraries
 
 | Technology | Purpose |
 |---|---|
@@ -211,6 +217,19 @@ Four user roles — recycler, recycling center staff, driver, and admin — each
 | **html5-qrcode** | In-browser QR code scanning for recycling center staff |
 | **EmailJS** | Client-side email notifications for pickup confirmations |
 | **Vercel** | Frontend deployment and global CDN hosting |
+
+---
+
+## Implementation Details & Innovation:
+
+### System architecture
+
+
+
+
+
+---
+
 
 ## 6. Environment Requirements
 The project uses a modern, type-safe development stack:
@@ -234,7 +253,11 @@ VITE_FIREBASE_AUTH_DOMAIN:Firebase Authentication domain.
 VITE_FIREBASE_PROJECT_ID:Unique Firebase project identifier.
 VITE_EMAILJS_PUBLIC_KEY:Used for sending pickup confirmation emails.
 
-## 10. 🗺️ Future Roadmap
+
+---
+
+
+## 🗺️ Future Roadmap
 
 ### 🟡 Short Term (0 – 6 Months)
 
