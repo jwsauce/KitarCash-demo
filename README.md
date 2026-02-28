@@ -126,7 +126,9 @@ Firestore Database
 
 ### 1. Problem Statement
 
-Malaysia is currently facing a critical "E-waste Paradox" where high public awareness fails to translate into effective action. This challenge primarily affects Malaysian households, who struggle with a lack of convenient disposal infrastructure, and 157+ licensed recovery facilities that are now facing a severe raw material shortage. Following the Absolute Prohibition on e-waste imports enacted on February 4, 2026, these industrial plants can no longer rely on foreign feedstock, making domestic e-waste recovery a matter of national industrial survival. Current solutions fail because they rely on passive "drop-off" models that place the logistical burden on the consumer without offering tangible incentives. As Malaysia is estimated to generate 24.5 million units of e-waste in 2025, we must bridge the gap between household "waste generators" and industrial "recoverers" to prevent both environmental degradation and the collapse of our local recycling infrastructure.
+Malaysia is currently facing a critical "E-Waste Paradox" where high public awareness fails to translate into effective action, causing both environmental degradation and economic instability. This crisis reached a breaking point with the enactment of the Absolute Prohibition on e-waste imports on February 4, 2026. With this enactment, all foreign feedstock has been cut off entirely, meaning Malaysia’s 157+ licensed recovery facilities must now rely solely on e-waste generated within Malaysia to survive.
+
+However, the current system is fundamentally broken. When a citizen wants to recycle, they are forced into a complicated and inconvenient process: they must manually research their device types, find a registered collection center, and travel there themselves—often without knowing if they will receive any incentives for their effort. This lack of motivation and high logistical friction results in millions of devices being thrown away, even though Malaysia is estimated to generate 24.5 million units of e-waste in 2025 alone.
 
 ### 2. SDG Alignment
 
