@@ -198,11 +198,73 @@ Four user roles — recycler, recycling center staff, driver, and admin — each
 
 ## Implementation Details & Innovation:
 
-### System architecture
+## System architecture
+<img width="1920" height="1080" alt="PROLEM STATEMENT" src="https://github.com/user-attachments/assets/ce1f48de-079f-47e4-bd34-ec3919e9e0be" />
+
+KitarCash uses a serverless architecture with a React frontend deployed on Vercel, connected to Firebase/Google Cloud backend services and external APIs
+
+### Frontend
+Our frontend shows a single page application built with React 19, TypeScript, TailwindCSS, and Vite, deployed on Vercel. React 19 with TypeScript provides type-safe components and IDE autocompletion across our data models. TailwindCSS was used to rapidly prototype custom user interface with the utility-first approach. Vite provides fast hot-reload during development and optimized production builds. We deployed our website on Vercel as it is optimized for high-performance frontend hosting.  It gives us automatic deployments on every git push with zero configuration, we basically just connected our GitHub repo and it auto-detected our Vite setup. This lets us iterate rapidly during development.
+
+Our targeted user will be regular users, driver, and recycling centers. Therefore, our web app consist of three different dashboard based on the user's role: regular users, drivers, and recycling center staff, with different features and functionalities:
+### 1. 👤 User Dashboard
+Consist of all the main features such as:
+- AI-powered E-Waste Chatbot
+- Interactive Center Map showcasing user's current location and nearby recycling centers
+- Schedule Pickup Form for users to submit e-waste pickup request
+- QR code generate via qrcode.react to generate QR code for e-waste transactions
+- Real-Time Digital Wallet that updates when a transaction is verified and credited
+### 2. 🚗 Driver Dashboard
+Able to see all pickup request that is accepted after the pooling. 
+Able to accept pickup request, navigate to user's location, collect e-waste and send it to recycling centers.
+### 3. 🏭 Recycling Center Dashboard
+A QR scanner via html5-qrcode to scan QR generated on the user's dashboard, corresponding to a transaction ID.
+Able to verify the e-waste item and credit user's wallet atomically.
 
 
+### API Layer
+The frontend communicates with three external APIs:
+### 1. ✨ Gemini API
+It is used for image recognition and chatbot. The model used is gemini-2.5-flash via @google/genai SDK. It is optimized for speed and cost while retaining strong multimodal capabilities. This means that it returns a near-instant response. When a user uploads a photo, gemini returns a structured output JSON matching the EWasteItem schema (name, category, estimated RM value, hazard flag), and user will be able to identify what the e-waste is, quickly. The structured output JSON will also connect to Firebase backend, and can be used when createTransaction cloud function was called. When a user asks Gemini questions about e-waste, it acts as an e-waste expert assistant. 
+### 2. 🗺️ Google Maps JavaScript API
+It is used for interactive map, determining user's position via browser-based Geolocation API, calculating distance between user and center via geoUtils.ts , get drivers a direct "Navigate" link to navigate to user's pickup location, and sort centers by proximity so the closest option will be shown to the user first. When user opens the "Pickup" page, this API is called to locate user's current location.
+### 3. 📧 EmailJS
+It is used to send pickup confirmation emails to users when a driver is assigned. User will not only get notify on our website, but also their e-mail.
 
 
+### Backend/Database
+The backend is serverless and all the server-side logic runs as Firebase Cloud Functions as it has zero infrastructure management, Admin SDK access, and atomic Firestore Transactions. Some Firebase products that we use are:
+### 1. Cloud Functions:
+Everytime when the frontend performs some sort of actions such as creating a transaction, it calls these cloud functions on the server side as these functions validate the caller's role, enforce business rules (e.g., only qr_generated transactions can be cancelled), and perform atomic Firestore operations. The frontend never writes directly to critical collections.
+### 2. Firestore Database 
+We store our core collections inside Firebase NoSQL database. It provides real-time sync as the frontend uses onSnapshot listeners on pickupRequests and transactions, so status changes appear instantly across all connected dashboards. For example, when a center scans QR, verifies and credits a user, the user's wallet updates instantly without refreshing.
+### 3. Firebase Storage
+It is used for e-waste image uploads in the "Chatbot" page. Images are stored under user-scoped paths `chat-uploads/{userUID}/{timestamp}-{filename}` with:
+File validation: JPEG, PNG, WebP only, max 5 MB
+Upload progress tracking via uploadBytesResumable
+Secure download URLs returned after upload completes
+### 4. Firebase Authentication 
+It is used for email/password sign-up and login, session management, JWT tokens with custom role claims (user, driver, recycle_centers, admin).
+### 5. Firestore Rules (Security Model)
+Firestore rules enforce that the transactions collection has allow write: if false — meaning no client can create or modify transactions directly. All writes go through Cloud Functions, which validate the caller's role, check transaction status, and use Firestore transactions for atomicity. This prevents double-crediting, transaction spoofing, and unauthorized access.
+
+
+### Workflow
+This is the complete flow from a user side of perspective. This workflow also shows how driver and centers are linked to the user.
+
+### 1. 📋 Sign Up/Login 
+When a user signs up to a new account, Firebase Auth creates the account, cloud function `setDefaultRole` stamps a `user` role as a custom claim on the JWT token. New signup user now has a document under the `user` collection in Firestore. User lands on User Dashboard, which accesses our solution's features: Scan, Pickup, Wallet.
+Note that our admin dashboard was not setted up for this demo. For now, promoting user’s role to driver or recycling_center will be conducted via running the utility script in `scripts/assignCenters.ts`
+### 2. 🤖 "Scan & Identify" AI Chatbot
+Users can now upload e-waste photos to the chatbot. The image is sent to Gemini 2.5 Flash with a structured schema prompt. Gemini then returns structured JSON output with item name, category, estimated RM value, hazard flag, and environmental impact note. Next, it will prompt users to choose "Send Manually", "Schedule Pickup" or "Just Asking". 
+### 3. 🗺️ Choose Disposal Path
+If the user chooses "Send Manually", the user will be redirected to the "Pickup" page, showing nearby recycling centers and can navigate to there with a link redirecting them to Google Maps. Cloud function `createTransaction` will create a transaction ID, which is then encoded into a QR generated on the Wallet page.
+If the user chooses "Schedule Pickup", it will prompt the user to fill in address, contact number, and item details. The pooling algorithm checks if there's >= 5 items that exist within a 2km radius. If so, requests are grouped into a pool. 
+On the driver’s dashboard, drivers see pooled tasks in their `/driver-dashboard` and can accept them. After the driver accepts, it navigates to the user's pickup location, collects the item, and sends it to the recycling center. Note that our demo code only demonstrates until the part where driver completes the pickup request, but there's no actual link of the driver and the recycling center, for now.
+### 4. ✅ Verification
+At the recycling center, center staff can access the `/center-dashboard`, scans the QR using html5-qrcode. The cloud function `verifyAndCredit` runs inside a Firestore transaction to atomically update the transaction status and credit the user's wallet.
+### 5. Wallet
+Users see their live wallet and full transaction history via real-time `onSnapshot` listeners.
 
 ---
 
@@ -216,7 +278,8 @@ Backend: Firebase Cloud Functions v2 (serverless environment).
 Database: Cloud Firestore (NoSQL).
 
 ### 2. Frontend InstallationClone and Install: 
-Clone the repository and navigate to the root folder (where package.json is located). Run npm install to download all frontend dependencies, including React, TypeScript, and the Google Generative AI SDK.
+Clone the repository and navigate to the root folder (where package.json is located). 
+Run npm install to download all frontend dependencies, including React, TypeScript, and the Google Generative AI SDK.
 Initialize Firebase: The firebase.ts file must be configured to initialize the Firebase SDK, including Authentication, Firestore, and Storage.
 Local Execution: Start the development server using the Vite dev command (typically npm run dev).
 
